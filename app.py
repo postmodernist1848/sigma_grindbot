@@ -106,9 +106,10 @@ def main():
     threading.Thread(target=bot.infinity_polling, name='bot_infinity_polling', daemon=True).start()
     while True:
         # проверка гринда каждый день
-        HOUR, MIN = 16, 30
-        now = datetime.now()
-        to = now.replace(hour=HOUR, minute=MIN)
+        hour, minute = 16, 30
+        hour -= 3
+        now = datetime.utcnow()
+        to = now.replace(hour=hour, minute=minute)
         if now >= to:
             to += timedelta(days=1)
         seconds_to_wait = (to - now).total_seconds()
