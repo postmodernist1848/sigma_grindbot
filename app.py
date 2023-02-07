@@ -2,6 +2,9 @@ import telebot
 from credentials import bot_token
 import signal
 import sys
+import threading
+from datetime import datetime, timedelta
+from time import sleep
 
 DATABASE_FILENAME = 'database.txt'
 HELP_MESSAGE = '''ВАМ НИКТО НЕ ПОМОЖЕТ'''
@@ -46,6 +49,11 @@ def save_database_to_file(sig, frame):
     print('Successfully saved the database')
     sys.exit(0)
 
+def grindcheck():
+    print('sending the grindchecks')
+    for entry in database:
+        bot.send_message(entry, 'Гриндил ли ты сегодня?')
+
 def main():
     global database
     database = {}
@@ -62,8 +70,18 @@ def main():
         pass
 
     signal.signal(signal.SIGINT, save_database_to_file)
-
-    bot.infinity_polling()
+    threading.Thread(target=bot.infinity_polling, name='bot_infinity_polling', daemon=True).start()
+    while True:
+        # проверка гринда каждый день
+        HOUR, MIN = 16, 30
+        now = datetime.now()
+        to = now.replace(hour=HOUR, minute=MIN)
+        if now >= to:
+            to += timedelta(days=1)
+        seconds_to_wait = (to - now).total_seconds()
+        print(f'waiting for {seconds_to_wait} seconds')
+        sleep(seconds_to_wait)
+        grindcheck()
 
 if __name__ == '__main__':
     main()
