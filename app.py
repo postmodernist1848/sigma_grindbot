@@ -5,6 +5,7 @@ import sys
 import threading
 from datetime import datetime, timedelta
 from time import sleep
+import shutil
 
 DATABASE_FILENAME = 'database.txt'
 HELP_MESSAGE = '''ВАМ НИКТО НЕ ПОМОЖЕТ'''
@@ -43,6 +44,13 @@ def echo_all(message):
 
 def save_database_to_file(sig, frame):
     print('Saving the database to file')
+
+    # backup
+    try:
+        shutil.copyfile(DATABASE_FILENAME, DATABASE_FILENAME + '.bak')
+    except FileNotFoundError:
+        pass
+
     with open(DATABASE_FILENAME, 'w') as f:
         for entry in database:
             print(entry, file=f)
