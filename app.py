@@ -80,11 +80,17 @@ def admin_send_all(message):
     else:
         bot.send_message(message.chat.id, 'Неизвестная команда администратора')
 
-
+@bot.message_handler(commands=["getuser"])
+def answer(message):
+    if (message.from_user.id == ADMIN_ID):
+        userid = int(message.text.split(maxsplit=1)[1])
+        UsrInfo = bot.get_chat_member(userid, userid).user
+        bot.send_message(message.chat.id, "Id: " + str(UsrInfo.id) + "\nFirst Name: " + str(UsrInfo.first_name) + "\nLast Name: " + str(UsrInfo.last_name) +
+                            "\nUsername: @" + str(UsrInfo.username))
 
 @bot.message_handler(func=lambda m: True)
 def echo_all(message):
-    print(f'user {message.from_user.username}: {message.text}')
+    print(f'{message.from_user.username}: {message.text}')
     bot.reply_to(message, message.text[::-1])
 
 def save_database_to_file(path):
@@ -131,8 +137,11 @@ def callback(call):
             save_database_to_file(DATABASE_FILENAME)
             bot.send_message(call.message.chat.id, 'База данных успешно сохранена')
         elif call.data == ADMIN_SHOW_DATABASE:
-            with open(DATABASE_FILENAME) as f:
-                bot.send_message(call.message.chat.id, f.read())
+            users = []
+            for userid, data in database.items():
+                user_info = bot.get_chat_member(userid, userid).user
+                users.append(f'{user_info.username} ({userid}): {data}')
+            bot.send_message(call.message.chat.id, '\n'.join(users))
         elif call.data == ADMIN_SEND_ALL_YES:
             bot.edit_message_text(call.message.text, call.message.chat.id, call.message.id)
             bot.send_message(call.message.chat.id, 'Сообщение отправлено')
