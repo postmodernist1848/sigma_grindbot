@@ -10,7 +10,12 @@ from time import sleep
 import shutil
 
 DATABASE_DIR = 'database.d'
-HELP_MESSAGE = '''ВАМ НИКТО НЕ ПОМОЖЕТ'''
+HELP_MESSAGE = '''Этот бот позволяет вам встать на путь sigma male grindset и гриндить каждый день.\n
+Команды:
+/grind    - записаться на ежедневный грайнд
+/progress - проверить собственный прогресс
+/lose - уйти с пути сигмы и стать неудачником
+'''
 ADMIN_ID = 664863967
 
 bot = telebot.TeleBot(bot_token, parse_mode=None)
