@@ -126,7 +126,7 @@ def remove_user_from_file(userid):
     os.remove(DATABASE_DIR + '/' + str(userid))
 
 def sigint_handler(sig, frame):
-    if input('Do you want to save the database (y/n)') == 'y':
+    if input('Do you want to save the database (y/n)').startswith('y'):
         save_database(DATABASE_DIR)
     sys.exit(0)
 
@@ -196,7 +196,7 @@ def main():
     threading.Thread(target=bot.infinity_polling, name='bot_infinity_polling', daemon=True).start()
     while True:
         # проверка гринда каждый день
-        hour, minute = 18, 29
+        hour, minute = 21, 57
         hour -= 3
         now = datetime.utcnow()
         to = now.replace(hour=hour, minute=minute)
