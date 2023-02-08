@@ -3,12 +3,13 @@ from telebot import types
 from credentials import bot_token
 import signal
 import sys
+import os
 import threading
 from datetime import datetime, timedelta
 from time import sleep
 import shutil
 
-DATABASE_FILENAME = 'database.txt'
+DATABASE_DIR = 'database.d'
 HELP_MESSAGE = '''ВАМ НИКТО НЕ ПОМОЖЕТ'''
 ADMIN_ID = 664863967
 
@@ -26,6 +27,7 @@ def send_welcome(message):
 def grind(message):
     if message.from_user.id not in database:
         database[message.from_user.id] = 0
+        save_user_to_file(message.from_user.id)
         print(f'user {message.from_user.username} added to database')
         bot.send_message(message.chat.id, "Вы записаны на гринд!")
     else:
@@ -42,6 +44,7 @@ def check_progress(message):
 def lose(message):
     if message.from_user.id in database:
         del database[message.from_user.id]
+        remove_user_from_file(message.from_user.id)
         print(f'user {message.from_user.username} removed from database')
         bot.send_message(message.chat.id, "Вы ушли с пути сигма гриндсета! Чтобы не быть ничтожеством, запишитесь на грайнд с помощью /grind")
     else:
@@ -93,23 +96,32 @@ def echo_all(message):
     print(f'{message.from_user.username}: {message.text}')
     bot.reply_to(message, message.text[::-1])
 
-def save_database_to_file(path):
-    print('Saving the database to file')
+def save_database(path):
+    print('Saving the database')
 
     # backup
     try:
-        shutil.copyfile(path, path + '.bak')
+        if os.path.exists(path + '.bak'):
+            shutil.rmtree(path + '.bak')
+        shutil.copytree(path, path + '.bak')
     except FileNotFoundError:
-        pass
+        print(f'Error: {DATABASE_DIR} not found')
 
-    with open(path, 'w') as f:
-        for key, value in database.items():
-            print(key, value, file=f)
+    for key, value in database.items():
+        with open(path + '/' + str(key), 'w') as f:
+            print(value, file=f)
+
     print('Successfully saved the database')
 
+def save_user_to_file(userid):
+    with open(DATABASE_DIR + '/' + str(userid), 'w') as f:
+        print(database[userid], file=f)
+
+def remove_user_from_file(userid):
+    os.remove(DATABASE_DIR + '/' + str(userid))
 
 def sigint_handler(sig, frame):
-    save_database_to_file(DATABASE_FILENAME)
+    save_database(DATABASE_DIR)
     sys.exit(0)
 
 
@@ -134,13 +146,16 @@ def callback(call):
             ans = 'ну ты и пидор говно ебаное блять ничтожество сука а ну быстро возвращайся к гринду ебаная сука уу блять пидарас говна' 
             bot.send_message(call.message.chat.id, ans)
         elif call.data == ADMIN_SAVE_DATABASE:
-            save_database_to_file(DATABASE_FILENAME)
+            save_database(DATABASE_DIR)
             bot.send_message(call.message.chat.id, 'База данных успешно сохранена')
         elif call.data == ADMIN_SHOW_DATABASE:
             users = []
             for userid, data in database.items():
                 user_info = bot.get_chat_member(userid, userid).user
-                users.append(f'{user_info.username} ({userid}): {data}')
+                if user_info.username:
+                    users.append(f'{user_info.username} ({userid}): {data}')
+                else:
+                    users.append(f'{user_info.first_name} {user_info.last_name} ({userid}): {data}')
             bot.send_message(call.message.chat.id, '\n'.join(users))
         elif call.data == ADMIN_SEND_ALL_YES:
             bot.edit_message_text(call.message.text, call.message.chat.id, call.message.id)
@@ -160,15 +175,15 @@ def main():
     
     # read the database
     print('Loading the database...')
+
     try:
-        with open(DATABASE_FILENAME) as f:
-            for line in f:
-                key, value = line.split()
-                database[int(key)] = int(value)
-        print('Database loaded successfully')
+        for filename in os.listdir(DATABASE_DIR):
+            with open(DATABASE_DIR + '/' + filename) as f:
+                database[int(filename)] = int(f.read())
+        print('Database loaded successfully:')
         print(database)
     except FileNotFoundError:
-        pass
+        print(f'Error: {DATABASE_DIR} not found')
 
     signal.signal(signal.SIGINT, sigint_handler)
     threading.Thread(target=bot.infinity_polling, name='bot_infinity_polling', daemon=True).start()
