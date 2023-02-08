@@ -8,6 +8,7 @@ import threading
 from datetime import datetime, timedelta
 from time import sleep
 import shutil
+from swearing import generate_swearline
 
 DATABASE_DIR = 'database.d'
 HELP_MESSAGE = '''Этот бот позволяет вам встать на путь sigma male grindset и гриндить каждый день.\n
@@ -54,6 +55,20 @@ def lose(message):
         bot.send_message(message.chat.id, "Вы ушли с пути сигма гриндсета! Чтобы не быть ничтожеством, запишитесь на грайнд с помощью /grind")
     else:
         bot.send_message(message.chat.id, "Вы не записывались на грайнд. Чтобы стать сигмой, используйте /grind")
+
+@bot.message_handler(commands=['swear'])
+def swear(message):
+    count = None
+
+    if (count := message.text.partition(' ')[2]):
+        try:
+            count = int(count)
+            generate_swearline(count)
+        except ValueError:
+            pass
+
+    ans = generate_swearline(count)
+    bot.send_message(message.chat.id, ans)
 
 ADMIN_SHOW_DATABASE = 'ADMIN_SHOW_DATABASE'
 ADMIN_SAVE_DATABASE = 'ADMIN_SAVE_DATABASE'
@@ -150,7 +165,7 @@ def callback(call):
             bot.send_message(call.message.chat.id, 'Так держать!')
         elif call.data == GRIND_CHECK_NO:
             bot.edit_message_text(call.message.text, call.message.chat.id, call.message.id)
-            ans = 'ну ты и пидор говно ебаное блять ничтожество сука а ну быстро возвращайся к гринду ебаная сука уу блять пидарас говна' 
+            ans = generate_swearline() 
             bot.send_message(call.message.chat.id, ans)
         elif call.data == ADMIN_SAVE_DATABASE:
             save_database(DATABASE_DIR)
