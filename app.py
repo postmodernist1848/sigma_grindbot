@@ -126,7 +126,8 @@ def remove_user_from_file(userid):
     os.remove(DATABASE_DIR + '/' + str(userid))
 
 def sigint_handler(sig, frame):
-    save_database(DATABASE_DIR)
+    if input('Do you want to save the database (y/n)') == 'y':
+        save_database(DATABASE_DIR)
     sys.exit(0)
 
 
@@ -145,6 +146,7 @@ def callback(call):
         if call.data == GRIND_CHECK_YES:
             bot.edit_message_text(call.message.text, call.message.chat.id, call.message.id)
             database[call.from_user.id] += 1
+            save_user_to_file(call.from_user.id)
             bot.send_message(call.message.chat.id, 'Так держать!')
         elif call.data == GRIND_CHECK_NO:
             bot.edit_message_text(call.message.text, call.message.chat.id, call.message.id)
