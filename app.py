@@ -10,6 +10,8 @@ import shutil
 
 DATABASE_FILENAME = 'database.txt'
 HELP_MESSAGE = '''ВАМ НИКТО НЕ ПОМОЖЕТ'''
+ADMIN_ID = 664863967
+
 bot = telebot.TeleBot(bot_token, parse_mode=None)
 
 @bot.message_handler(commands=['help'])
@@ -45,46 +47,103 @@ def lose(message):
     else:
         bot.send_message(message.chat.id, "Вы не записывались на грайнд. Чтобы стать сигмой, используйте /grind")
 
+ADMIN_SHOW_DATABASE = 'ADMIN_SHOW_DATABASE'
+ADMIN_SAVE_DATABASE = 'ADMIN_SAVE_DATABASE'
+GRIND_CHECK_YES     = 'GRIND_CHECK_YES'
+GRIND_CHECK_NO      = 'GRIND_CHECK_NO'
+ADMIN_SEND_ALL_YES  = 'ADMIN_SEND_ALL_YES'
+ADMIN_SEND_ALL_NO   = 'ADMIN_SEND_ALL_NO'
+
+@bot.message_handler(commands=['admin'], func=lambda m: len(m.text) == len('/admin'))
+def admin_control_panel(message):
+    if message.from_user.id != ADMIN_ID:
+        bot.send_message(message.chat.id, "У вас нет прав администратора")
+        return
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    item1 = types.InlineKeyboardButton('Сохранить базу данных', callback_data=ADMIN_SAVE_DATABASE)
+    item2 = types.InlineKeyboardButton('Показать базу данных', callback_data=ADMIN_SHOW_DATABASE)
+    markup.add(item1, item2)
+    bot.send_message(message.chat.id, 'Панель администратора', reply_markup=markup)
+
+@bot.message_handler(commands=['admin'])
+def admin_send_all(message):
+    command = message.text.partition(' ')[2]
+    command, _, arg = command.partition(' ')
+    if command == 'sendall':
+        markup = types.InlineKeyboardMarkup()
+        item1 = types.InlineKeyboardButton('Да', callback_data=ADMIN_SEND_ALL_YES)
+        item2 = types.InlineKeyboardButton('Нет', callback_data=ADMIN_SEND_ALL_NO)
+        markup.add(item1, item2)
+        global send_all_message
+        send_all_message = arg
+        bot.send_message(message.chat.id, 'Вы уверены, что хотите отправить сообщение: \"' + send_all_message + '\"', reply_markup=markup)
+    else:
+        bot.send_message(message.chat.id, 'Неизвестная команда администратора')
+
+
+
 @bot.message_handler(func=lambda m: True)
 def echo_all(message):
     print(f'user {message.from_user.username}: {message.text}')
     bot.reply_to(message, message.text[::-1])
 
-def save_database_to_file(sig, frame):
+def save_database_to_file(path):
     print('Saving the database to file')
 
     # backup
     try:
-        shutil.copyfile(DATABASE_FILENAME, DATABASE_FILENAME + '.bak')
+        shutil.copyfile(path, path + '.bak')
     except FileNotFoundError:
         pass
 
-    with open(DATABASE_FILENAME, 'w') as f:
+    with open(path, 'w') as f:
         for key, value in database.items():
             print(key, value, file=f)
     print('Successfully saved the database')
+
+
+def sigint_handler(sig, frame):
+    save_database_to_file(DATABASE_FILENAME)
     sys.exit(0)
 
-@bot.callback_query_handler(func=lambda call: True)
-def callback(call):
-    if call.message:
-        if call.data == 'yes':
-            bot.edit_message_text('Так держать!', call.message.chat.id, call.message.id)
-            database[call.from_user.id] += 1
-        elif call.data == 'no':
-            ans = 'ну ты и пидор говно ебаное блять ничтожество сука а ну быстро возвращайся к гринду ебаная сука уу блять пидарас говна'
-            bot.edit_message_text(ans, call.message.chat.id, call.message.id)
-        else:
-            print(f'unknown callback: {call.data}')
 
 def grindcheck():
     print('sending the grindchecks')
     markup = types.InlineKeyboardMarkup()
-    item1 = types.InlineKeyboardButton('Да', callback_data='yes')
-    item2 = types.InlineKeyboardButton('Нет', callback_data='no')
+    item1 = types.InlineKeyboardButton('Да', callback_data=GRIND_CHECK_YES)
+    item2 = types.InlineKeyboardButton('Нет', callback_data=GRIND_CHECK_NO)
     markup.add(item1, item2)
     for entry in database:
         bot.send_message(entry, 'Гриндил ли ты сегодня?', reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: True)
+def callback(call):
+    if call.message:
+        if call.data == GRIND_CHECK_YES:
+            bot.edit_message_text(call.message.text, call.message.chat.id, call.message.id)
+            database[call.from_user.id] += 1
+            bot.send_message(call.message.chat.id, 'Так держать!')
+        elif call.data == GRIND_CHECK_NO:
+            bot.edit_message_text(call.message.text, call.message.chat.id, call.message.id)
+            ans = 'ну ты и пидор говно ебаное блять ничтожество сука а ну быстро возвращайся к гринду ебаная сука уу блять пидарас говна' 
+            bot.send_message(call.message.chat.id, ans)
+        elif call.data == ADMIN_SAVE_DATABASE:
+            save_database_to_file(DATABASE_FILENAME)
+            bot.send_message(call.message.chat.id, 'База данных успешно сохранена')
+        elif call.data == ADMIN_SHOW_DATABASE:
+            with open(DATABASE_FILENAME) as f:
+                bot.send_message(call.message.chat.id, f.read())
+        elif call.data == ADMIN_SEND_ALL_YES:
+            bot.edit_message_text(call.message.text, call.message.chat.id, call.message.id)
+            bot.send_message(call.message.chat.id, 'Сообщение отправлено')
+            print('sending to everyone:', send_all_message)
+            for entry in database:
+                bot.send_message(entry, send_all_message)
+        elif call.data == ADMIN_SEND_ALL_NO:
+            bot.edit_message_text(call.message.text, call.message.chat.id, call.message.id)
+            bot.send_message(call.message.chat.id, 'Отправка сообщения отменена')
+        else:
+            print(f'unknown callback: {call.data}')
 
 def main():
     global database
@@ -102,11 +161,11 @@ def main():
     except FileNotFoundError:
         pass
 
-    signal.signal(signal.SIGINT, save_database_to_file)
+    signal.signal(signal.SIGINT, sigint_handler)
     threading.Thread(target=bot.infinity_polling, name='bot_infinity_polling', daemon=True).start()
     while True:
         # проверка гринда каждый день
-        hour, minute = 16, 30
+        hour, minute = 18, 29
         hour -= 3
         now = datetime.utcnow()
         to = now.replace(hour=hour, minute=minute)
