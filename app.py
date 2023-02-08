@@ -196,7 +196,7 @@ def main():
     threading.Thread(target=bot.infinity_polling, name='bot_infinity_polling', daemon=True).start()
     while True:
         # проверка гринда каждый день
-        hour, minute = 21, 57
+        hour, minute = 19, 20
         hour -= 3
         now = datetime.utcnow()
         to = now.replace(hour=hour, minute=minute)
