@@ -10,6 +10,9 @@ from time import sleep
 import shutil
 from swearing import generate_swearline
 
+import linecache
+import random
+
 DATABASE_DIR = 'database.d'
 HELP_MESSAGE = '''Этот бот позволяет вам встать на путь sigma male grindset и гриндить каждый день.
 
@@ -123,9 +126,13 @@ def answer(message):
                             "\nUsername: @" + str(UsrInfo.username))
 
 @bot.message_handler(func=lambda m: True)
-def echo_all(message):
+def random_stoic_quote(message):
     print(f'{message.from_user.username}: {message.text}')
-    bot.reply_to(message, message.text[::-1])
+    quote_number = random.randint(0, 1773)
+    quote  = linecache.getline('quotes.txt', quote_number * 2 + 1)
+    author = linecache.getline('quotes.txt', quote_number * 2 + 2)
+    print('ans: ' + quote + author)
+    bot.send_message(message.chat.id, quote + author, reply_to_message_id=message.id)
 
 def save_database(path):
     print('Saving the database')
