@@ -11,14 +11,17 @@ import shutil
 from swearing import generate_swearline
 
 DATABASE_DIR = 'database.d'
-HELP_MESSAGE = '''Этот бот позволяет вам встать на путь sigma male grindset и гриндить каждый день.\n
+HELP_MESSAGE = '''Этот бот позволяет вам встать на путь sigma male grindset и гриндить каждый день.
+
 Команды:
 /grind    - записаться на ежедневный грайнд
 /progress - проверить собственный прогресс
 /lose - уйти с пути сигмы и стать неудачником
+/swear <число> - сгенерировать случайное ругательство, опционально можно выбрать длину
 '''
 ADMIN_ID = 664863967
 
+check_message = ''
 bot = telebot.TeleBot(bot_token, parse_mode=None)
 
 @bot.message_handler(commands=['help'])
@@ -69,12 +72,13 @@ def swear(message):
     bot.send_message(message.chat.id, generate_swearline(count))
 
 
-ADMIN_SHOW_DATABASE = 'ADMIN_SHOW_DATABASE'
-ADMIN_SAVE_DATABASE = 'ADMIN_SAVE_DATABASE'
-GRIND_CHECK_YES     = 'GRIND_CHECK_YES'
-GRIND_CHECK_NO      = 'GRIND_CHECK_NO'
-ADMIN_SEND_ALL_YES  = 'ADMIN_SEND_ALL_YES'
-ADMIN_SEND_ALL_NO   = 'ADMIN_SEND_ALL_NO'
+ADMIN_SHOW_DATABASE     = 'ADMIN_SHOW_DATABASE'
+ADMIN_SAVE_DATABASE     = 'ADMIN_SAVE_DATABASE'
+ADMIN_GET_CHECK_TIME    = 'ADMIN_GET_CHECK_TIME'
+GRIND_CHECK_YES         = 'GRIND_CHECK_YES'
+GRIND_CHECK_NO          = 'GRIND_CHECK_NO'
+ADMIN_SEND_ALL_YES      = 'ADMIN_SEND_ALL_YES'
+ADMIN_SEND_ALL_NO       = 'ADMIN_SEND_ALL_NO'
 
 @bot.message_handler(commands=['admin'], func=lambda m: len(m.text) == len('/admin'))
 def admin_control_panel(message):
@@ -84,11 +88,15 @@ def admin_control_panel(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
     item1 = types.InlineKeyboardButton('Сохранить базу данных', callback_data=ADMIN_SAVE_DATABASE)
     item2 = types.InlineKeyboardButton('Показать базу данных', callback_data=ADMIN_SHOW_DATABASE)
-    markup.add(item1, item2)
+    item3 = types.InlineKeyboardButton('Показать время проверки', callback_data=ADMIN_GET_CHECK_TIME)
+    markup.add(item1, item2, item3)
     bot.send_message(message.chat.id, 'Панель администратора', reply_markup=markup)
 
 @bot.message_handler(commands=['admin'])
 def admin_send_all(message):
+    if message.from_user.id != ADMIN_ID:
+        bot.send_message(message.chat.id, "У вас нет прав администратора")
+        return
     command = message.text.partition(' ')[2]
     command, _, arg = command.partition(' ')
     if command == 'sendall':
@@ -99,6 +107,10 @@ def admin_send_all(message):
         global send_all_message
         send_all_message = arg
         bot.send_message(message.chat.id, 'Вы уверены, что хотите отправить сообщение: \"' + send_all_message + '\"', reply_markup=markup)
+    if command == 'setmessage':
+        global check_message
+        check_message = arg
+        bot.send_message(message.chat.id, 'Новое сообщение проверки установлено. Вот его текст:\n\'' + check_message + '\'')
     else:
         bot.send_message(message.chat.id, 'Неизвестная команда администратора')
 
@@ -152,7 +164,10 @@ def grindcheck():
     item2 = types.InlineKeyboardButton('Нет', callback_data=GRIND_CHECK_NO)
     markup.add(item1, item2)
     for entry in database:
+        if check_message:
+            bot.send_message(entry, check_message)
         bot.send_message(entry, 'Гриндил ли ты сегодня?', reply_markup=markup)
+
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
@@ -161,7 +176,7 @@ def callback(call):
             bot.edit_message_text(call.message.text, call.message.chat.id, call.message.id)
             database[call.from_user.id] += 1
             save_user_to_file(call.from_user.id)
-            bot.send_message(call.message.chat.id, 'Я не буду никак награждать тебя, ведь я надеюсь, что сама жизнь это сделает. Keep up the grind!')
+            bot.send_message(call.message.chat.id, 'Keep up the grind!')
         elif call.data == GRIND_CHECK_NO:
             bot.edit_message_text(call.message.text, call.message.chat.id, call.message.id)
             ans = generate_swearline() 
@@ -187,6 +202,8 @@ def callback(call):
         elif call.data == ADMIN_SEND_ALL_NO:
             bot.edit_message_text(call.message.text, call.message.chat.id, call.message.id)
             bot.send_message(call.message.chat.id, 'Отправка сообщения отменена')
+        elif call.data == ADMIN_GET_CHECK_TIME:
+            bot.send_message(call.message.chat.id, f'''Время отправки сообщений - {grindcheck_time[0]}:{grindcheck_time[1]}''')
         else:
             print(f'unknown callback: {call.data}')
 
@@ -210,8 +227,10 @@ def main():
     threading.Thread(target=bot.infinity_polling, name='bot_infinity_polling', daemon=True).start()
     while True:
         # проверка гринда каждый день
-        hour, minute = 19, 20
-        hour -= 3
+        global grindcheck_time
+        grindcheck_time = (20, 28)
+
+        hour, minute = grindcheck_time[0] - 3, grindcheck_time[1]
         now = datetime.utcnow()
         to = now.replace(hour=hour, minute=minute)
         if now >= to:
