@@ -127,6 +127,10 @@ def answer(message):
 
 @bot.message_handler(func=lambda m: True)
 def random_stoic_quote(message):
+    if message.text.lower() == 'привет':
+        bot.send_message(message.chat.id, 'И тебе привет! Используй /help для помощи', reply_to_message_id=message.id)
+        return
+
     print(f'{message.from_user.username}: {message.text}')
     quote_number = random.randint(0, 1773)
     quote  = linecache.getline('quotes.txt', quote_number * 2 + 1)
@@ -235,7 +239,7 @@ def main():
     while True:
         # проверка гринда каждый день
         global grindcheck_time
-        grindcheck_time = (20, 28)
+        grindcheck_time = (19, 20)
 
         hour, minute = grindcheck_time[0] - 3, grindcheck_time[1]
         now = datetime.utcnow()
