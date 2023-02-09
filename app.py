@@ -59,16 +59,15 @@ def lose(message):
 @bot.message_handler(commands=['swear'])
 def swear(message):
     count = None
-
-    if (count := message.text.partition(' ')[2]):
+    arg = message.text.partition(' ')[2]
+    if (arg):
         try:
-            count = int(count)
-            generate_swearline(count)
+            count = int(arg)
         except ValueError:
             pass
 
-    ans = generate_swearline(count)
-    bot.send_message(message.chat.id, ans)
+    bot.send_message(message.chat.id, generate_swearline(count))
+
 
 ADMIN_SHOW_DATABASE = 'ADMIN_SHOW_DATABASE'
 ADMIN_SAVE_DATABASE = 'ADMIN_SAVE_DATABASE'
