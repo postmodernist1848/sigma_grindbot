@@ -162,7 +162,7 @@ def callback(call):
             bot.edit_message_text(call.message.text, call.message.chat.id, call.message.id)
             database[call.from_user.id] += 1
             save_user_to_file(call.from_user.id)
-            bot.send_message(call.message.chat.id, 'Так держать!')
+            bot.send_message(call.message.chat.id, 'Я не буду никак награждать тебя, ведь я надеюсь, что сама жизнь это сделает. Keep up the grind!')
         elif call.data == GRIND_CHECK_NO:
             bot.edit_message_text(call.message.text, call.message.chat.id, call.message.id)
             ans = generate_swearline() 
