@@ -48,7 +48,7 @@ def grind(message):
 @bot.message_handler(commands=['progress'])
 def check_progress(message):
     if message.from_user.id in database:
-        bot.send_message(message.chat.id, f"{message.from_user.username}: гриндишь на протяжении {database[message.from_user.id]} дней!")
+        bot.send_message(message.chat.id, show_progress(message.from_user))
     else:
         bot.send_message(message.chat.id, "Вы не записывались на грайнд. Чтобы стать сигмой, используйте /grind")
 
@@ -110,10 +110,12 @@ def admin_send_all(message):
         global send_all_message
         send_all_message = arg
         bot.send_message(message.chat.id, 'Вы уверены, что хотите отправить сообщение: \"' + send_all_message + '\"', reply_markup=markup)
-    if command == 'setmessage':
+    elif command == 'setmessage':
         global check_message
         check_message = arg
         bot.send_message(message.chat.id, 'Новое сообщение проверки установлено. Вот его текст:\n\'' + check_message + '\'')
+    elif command == 'debuggrindcheck':
+        grindcheck()
     else:
         bot.send_message(message.chat.id, 'Неизвестная команда администратора')
 
@@ -127,7 +129,7 @@ def answer(message):
 
 @bot.message_handler(func=lambda m: True)
 def random_stoic_quote(message):
-    if message.text.lower() == 'привет':
+    if message.text.lower().startswith('привет'):
         bot.send_message(message.chat.id, 'И тебе привет! Используй /help для помощи', reply_to_message_id=message.id)
         return
 
@@ -167,6 +169,61 @@ def sigint_handler(sig, frame):
         save_database(DATABASE_DIR)
     sys.exit(0)
 
+RANKS = ['пикочад', 'наночад', 'микрочад', 'чад', 'килочад', 'мегачад', 'терачад', 'экзачад',
+        'зетачад', 'йотачад', 'богочад', 'дальше просто некуда']
+RANK_MARGINS = {1, 3, 5, 10, 20, 30, 50, 80, 100, 150}
+
+def show_progress(user):
+    days = database[user.id]
+
+    if user.username:
+        status = f"{user.username}: гриндишь на протяжении {days} дней!\n"
+    else:
+        status = f"{user.first_name} {user.last_name}: гриндишь на протяжении {days} дней!\n"
+
+    if days < 1:
+        rank = 0
+        progress_bar = generate_progress_bar(0, days, 1)
+    elif days < 2:
+        rank = 1
+        progress_bar = generate_progress_bar(1, days, 3)
+    elif days < 5:
+        rank = 2
+        progress_bar = generate_progress_bar(3, days, 5)
+    elif days < 10:
+        rank = 3
+        progress_bar = generate_progress_bar(5, days, 10)
+    elif days < 20:
+        rank = 4
+        progress_bar = generate_progress_bar(10, days, 20)
+    elif days < 30:
+        rank = 5
+        progress_bar = generate_progress_bar(20, days, 30)
+    elif days < 50:
+        rank = 6
+        progress_bar = generate_progress_bar(30, days, 50)
+    elif days < 80:
+        rank = 7
+        progress_bar = generate_progress_bar(50, days, 80)
+    elif days < 100:
+        rank = 8
+        progress_bar = generate_progress_bar(80, days, 100)
+    elif days < 150:
+        rank = 9
+        progress_bar = generate_progress_bar(100, days, 150)
+    else:
+        rank = 10
+        progress_bar = generate_progress_bar(0, 150, 150)
+
+    status += 'Твое звание: ' + RANKS[rank] + '\n' + progress_bar + '\n' + 'Следующее звание: ' + RANKS[rank + 1]
+
+    return status
+
+def generate_progress_bar(start, current, maxvalue):
+    length = 20
+    filled_count = (current - start) * length // (maxvalue - start)
+    return str(start) + ' [' + '■' * filled_count + '□' * (length - filled_count) + '] ' + str(maxvalue)
+
 
 def grindcheck():
     print('sending the grindchecks')
@@ -188,6 +245,11 @@ def callback(call):
             database[call.from_user.id] += 1
             save_user_to_file(call.from_user.id)
             bot.send_message(call.message.chat.id, 'Keep up the grind!')
+
+            # проверка на достижение нового уровня
+            if database[call.from_user.id] in RANK_MARGINS:
+                bot.send_message(call.message.chat.id, 'Поздравляю, ты достиг нового звания! Используй /progress, чтобы узнать больше')
+
         elif call.data == GRIND_CHECK_NO:
             bot.edit_message_text(call.message.text, call.message.chat.id, call.message.id)
             ans = generate_swearline() 
@@ -200,7 +262,7 @@ def callback(call):
             for userid, data in database.items():
                 user_info = bot.get_chat_member(userid, userid).user
                 if user_info.username:
-                    users.append(f'{user_info.username} ({userid}): {data}')
+                    users.append(f'@{user_info.username} ({userid}): {data}')
                 else:
                     users.append(f'{user_info.first_name} {user_info.last_name} ({userid}): {data}')
             bot.send_message(call.message.chat.id, '\n'.join(users))
