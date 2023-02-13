@@ -1,48 +1,60 @@
-from enum import Enum
+from enum import Enum, auto
 import random
 
+class Gender(Enum):
+    M = auto()
+    N = auto()
+    F = auto()
+
 class Noun:
-    def __init__(self, word, ending):
+    def __init__(self, word, gender):
         self.word = word
-        self.ending = ending
+        self.gender = gender
+
+class Adjective:
+    def __init__(self, word, m, n, f):
+        self.word = word
+        self.endings = {}
+        self.endings[Gender.M] = m
+        self.endings[Gender.N] = n
+        self.endings[Gender.F] = f
 
 nouns = [
-Noun('падонок',     'ый'),
-Noun('пидор',       'ый'),
-Noun('педик',       'ый'),
-Noun('дебил',       'ый'),
-Noun('отстой',      'ый'),
+Noun('падонок',     Gender.M),
+Noun('пидор',       Gender.M),
+Noun('педик',       Gender.M),
+Noun('дебил',       Gender.M),
+Noun('отстой',      Gender.M),
+Noun('выблядок' ,   Gender.M),
+Noun('обмудок'  ,   Gender.M),
+Noun('высер'    ,   Gender.M),
+Noun('дегенерат',   Gender.M),
+Noun('отморозок',   Gender.M),
+Noun('сблёв'    ,   Gender.M),
+Noun('олень'    ,   Gender.M),
 
-Noun('выблядок' ,   'ый'),
-Noun('обмудок'  ,   'ый'),
-Noun('высер'    ,   'ый'),
-Noun('дегенерат',   'ый'),
-Noun('отморозок',   'ый'),
-Noun('сблёв'    ,   'ый'),
-Noun('олень'    ,   'ый'),
+Noun('говно',       Gender.N),
+Noun('ничтожество', Gender.N),
+Noun('чмо',         Gender.N),
+Noun('уебище',      Gender.N),
 
-Noun('говно',       'ое'),
-Noun('ничтожество', 'ое'),
-Noun('чмо',         'ое'),
-Noun('уебище',      'ое'),
-
-Noun('пизда',       'ая'),
-Noun('хуета',       'ая'),
-Noun('чурка',       'ая'),
-Noun('гнида',       'ая'),
-Noun('мразь',       'ая')
+Noun('пизда',       Gender.F),
+Noun('хуета',       Gender.F),
+Noun('чурка',       Gender.F),
+Noun('гнида',       Gender.F),
+Noun('мразь',       Gender.F)
 ]
 
 adjectives = [
-'ничтожн',
-'пидорск',
-'ебан',
-'суч',
-'говнян',
-'петушин',
-'безмозгл',
-'конченн',
-'амёбн'
+Adjective('ничтожн',  'ый', 'ое', 'ая'),
+Adjective('пидорск',  'ий', 'ое', 'ая'),  
+Adjective('ебан',     'ый', 'ое', 'ая'),
+Adjective('суч',      'ий', 'ее', 'ая'),
+Adjective('говнян',   'ый', 'ое', 'ая'),  
+Adjective('петушин',  'ый', 'ое', 'ая'),   
+Adjective('безмозгл', 'ый', 'ое', 'ая'),   
+Adjective('конченн',  'ый', 'ое', 'ая'),  
+Adjective('амёбн',    'ый', 'ое', 'ая'), 
 ]
 
 interjections = [
@@ -65,7 +77,8 @@ def generate_swearline(length=None):
         line.append(noun.word)
         i += 1
         for _ in range(random.randint(0, 2)):
-            line.insert(i - 1, random.choice(adjectives) + noun.ending)
+            adj = random.choice(adjectives)
+            line.insert(i - 1, adj.word + adj.endings[noun.gender])
             i += 1
     return ' '.join(line)
 
