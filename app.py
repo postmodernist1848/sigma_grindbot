@@ -109,7 +109,7 @@ def admin_send_all(message):
         markup.add(item1, item2)
         global send_all_message
         send_all_message = arg
-        bot.send_message(message.chat.id, 'Вы уверены, что хотите отправить сообщение: \"' + send_all_message + '\"', reply_markup=markup)
+        bot.send_message(message.chat.id, 'Вы уверены, что хотите отправить сообщение: \"' + send_all_message + '\"', reply_markup=markup, parse_mode='html')
     elif command == 'setmessage':
         global check_message
         check_message = arg
@@ -271,7 +271,7 @@ def callback(call):
             bot.send_message(call.message.chat.id, 'Сообщение отправлено')
             print('sending to everyone:', send_all_message)
             for entry in database:
-                bot.send_message(entry, send_all_message)
+                bot.send_message(entry, send_all_message, parse_mode='html')
         elif call.data == ADMIN_SEND_ALL_NO:
             bot.edit_message_text(call.message.text, call.message.chat.id, call.message.id)
             bot.send_message(call.message.chat.id, 'Отправка сообщения отменена')
