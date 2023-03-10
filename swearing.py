@@ -20,29 +20,35 @@ class Adjective:
         self.endings[Gender.F] = f
 
 nouns = [
-Noun('падонок',     Gender.M),
+Noun('подонок',     Gender.M),
 Noun('пидор',       Gender.M),
 Noun('педик',       Gender.M),
 Noun('дебил',       Gender.M),
 Noun('отстой',      Gender.M),
-Noun('выблядок' ,   Gender.M),
-Noun('обмудок'  ,   Gender.M),
-Noun('высер'    ,   Gender.M),
+Noun('выблядок',    Gender.M),
+Noun('обмудок',     Gender.M),
+Noun('высер',       Gender.M),
 Noun('дегенерат',   Gender.M),
 Noun('отморозок',   Gender.M),
-Noun('сблёв'    ,   Gender.M),
-Noun('олень'    ,   Gender.M),
+Noun('сблёв',       Gender.M),
+Noun('олень',       Gender.M),
+Noun('долбоёб',     Gender.M),
+Noun('хуйлан',      Gender.M),
 
 Noun('говно',       Gender.N),
 Noun('ничтожество', Gender.N),
 Noun('чмо',         Gender.N),
 Noun('уебище',      Gender.N),
+Noun('быдло',       Gender.N),
 
 Noun('пизда',       Gender.F),
 Noun('хуета',       Gender.F),
 Noun('чурка',       Gender.F),
 Noun('гнида',       Gender.F),
-Noun('мразь',       Gender.F)
+Noun('мразь',       Gender.F),
+Noun('скотина',     Gender.F),
+Noun('дрянь',       Gender.F),
+Noun('проститутка', Gender.F),
 ]
 
 adjectives = [
@@ -55,6 +61,7 @@ Adjective('петушин',  'ый', 'ое', 'ая'),
 Adjective('безмозгл', 'ый', 'ое', 'ая'),   
 Adjective('конченн',  'ый', 'ое', 'ая'),  
 Adjective('амёбн',    'ый', 'ое', 'ая'), 
+Adjective('туп',      'ой', 'ое', 'ая'), 
 ]
 
 interjections = [
