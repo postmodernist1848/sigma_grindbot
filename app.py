@@ -17,7 +17,7 @@ DATABASE_DIR = 'database.d'
 HELP_MESSAGE = '''Этот бот позволяет вам встать на путь sigma male grindset и гриндить каждый день.
 
 Команды:
-/grind    - записаться на ежедневный грайнд
+/grind - записаться на ежедневный грайнд (каждый день бот будет проверять, гриндил ли ты сегодня | совет: для каждого стандарты гринда разные, но если у тебя каждый день есть несколько часов свободного времени, то считай пару пару потраченных с пользой часов успешным гриндом. Если же ты сделал лишь то, что было крайне необходимо, это безделие)
 /progress - проверить собственный прогресс
 /lose - уйти с пути сигмы и стать неудачником
 /swear <число> - сгенерировать случайное ругательство, опционально можно выбрать длину
@@ -171,7 +171,8 @@ def sigint_handler(sig, frame):
 
 RANKS = ['пикочад', 'наночад', 'микрочад', 'чад', 'килочад', 'мегачад', 'терачад', 'экзачад',
         'зетачад', 'йотачад', 'богочад', 'дальше просто некуда']
-RANK_MARGINS = {1, 3, 5, 10, 20, 30, 50, 80, 100, 150}
+RANK_MARGINS_LIST = [1, 3, 5, 10, 20, 30, 50, 80, 100, 150]
+RANK_MARGINS_SET = set(RANK_MARGINS_LIST)
 
 def show_progress(user):
     days = database[user.id]
@@ -247,7 +248,7 @@ def callback(call):
             bot.send_message(call.message.chat.id, 'Keep up the grind!')
 
             # проверка на достижение нового уровня
-            if database[call.from_user.id] in RANK_MARGINS:
+            if database[call.from_user.id] in RANK_MARGINS_SET:
                 bot.send_message(call.message.chat.id, 'Поздравляю, ты достиг нового звания! Используй /progress, чтобы узнать больше')
 
         elif call.data == GRIND_CHECK_NO:
