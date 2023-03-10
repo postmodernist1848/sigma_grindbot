@@ -1,11 +1,6 @@
-'''
-TODO:
-    1. Rewrite in aiogram + make sending messages asynchronous
-    2. Contains globals
-    3. Type everything
-'''
-
 import aiogram
+from aiogram.types import Message
+from typing import Final, List, Set, Tuple, Dict
 import credentials
 import asyncio
 import signal
@@ -14,12 +9,13 @@ import os
 from datetime import datetime, timedelta
 import shutil
 from swearing import generate_swearline
-
 import linecache
 import random
 
-DATABASE_DIR = 'database.d'
-HELP_MESSAGE = '''Этот бот позволяет вам встать на путь sigma male grindset и гриндить каждый день.
+################################################################################
+
+DATABASE_DIR: Final[str] = 'database.d'
+HELP_MESSAGE: Final[str] = '''Этот бот позволяет вам встать на путь sigma male grindset и гриндить каждый день.
 
 Команды:
 /grind    - записаться на ежедневный грайнд
@@ -27,26 +23,51 @@ HELP_MESSAGE = '''Этот бот позволяет вам встать на п
 /lose - уйти с пути сигмы и стать неудачником
 /swear <число> - сгенерировать случайное ругательство, опционально можно выбрать длину
 '''
-ADMIN_ID = 664863967
+ADMIN_ID: Final[int] = 664863967
 
-check_message = ''
+#required for callback data
+class Calldata:
+    ADMIN_SHOW_DATABASE  : Final[str] = 'ADMIN_SHOW_DATABASE'
+    ADMIN_SAVE_DATABASE  : Final[str] = 'ADMIN_SAVE_DATABASE'
+    ADMIN_GET_CHECK_TIME : Final[str] = 'ADMIN_GET_CHECK_TIME'
+    GRIND_CHECK_YES      : Final[str] = 'GRIND_CHECK_YES'
+    GRIND_CHECK_NO       : Final[str] = 'GRIND_CHECK_NO'
+    ADMIN_SEND_ALL_YES   : Final[str] = 'ADMIN_SEND_ALL_YES'
+    ADMIN_SEND_ALL_NO    : Final[str] = 'ADMIN_SEND_ALL_NO'
+    LOSE_YES             : Final[str] = 'LOSE_YES'
+    LOSE_NO              : Final[str] = 'LOSE_NO'
 
-PROXY_URL = "http://proxy.server:3128"
-bot = aiogram.Bot(token=credentials.bot_token, proxy=PROXY_URL)
+if not credentials.local:
+    PROXY_URL: Final[str] = "http://proxy.server:3128"
+    bot = aiogram.Bot(token=credentials.bot_token, proxy=PROXY_URL)
+else:
+    bot = aiogram.Bot(token=credentials.bot_token)
+
 dp = aiogram.Dispatcher(bot)
 
+RANKS: Final[List[str]] = ['пикочад', 'наночад', 'микрочад', 'чад', 'килочад', 'мегачад', 'терачад', 'экзачад',
+        'зетачад', 'йотачад', 'богочад', 'дальше просто некуда']
+RANK_MARGINS: Final[Set[int]] = {1, 3, 5, 10, 20, 30, 50, 80, 100, 150}
+
+GRINDCHECK_TIME: Final[Tuple[int, int]] = (20, 52)
+
+database: Dict[int, int] = {}
+
+################################################################################
+
+
 @dp.message_handler(commands=['help'])
-async def send_help(message):
+async def send_help(message: Message):
 	await bot.send_message(message.chat.id, HELP_MESSAGE)
 
 
 @dp.message_handler(commands=['start'])
-async def send_welcome(message):
+async def send_welcome(message: Message):
 	await bot.send_message(message.chat.id, "Здравствуйте, мои маленькие любители экстремизма!", reply_to_message_id=message.message_id)
 
 
 @dp.message_handler(commands=['grind'])
-async def grind(message):
+async def grind(message: Message):
     if message.from_user.id not in database:
         database[message.from_user.id] = 0
         save_user_to_file(message.from_user.id)
@@ -57,7 +78,7 @@ async def grind(message):
 
 
 @dp.message_handler(commands=['progress'])
-async def check_progress(message):
+async def check_progress(message: Message):
     if message.from_user.id in database:
         await bot.send_message(message.chat.id, show_progress(message.from_user))
     else:
@@ -65,18 +86,21 @@ async def check_progress(message):
 
 
 @dp.message_handler(commands=['lose'])
-async def lose(message):
+async def lose(message: Message):
     if message.from_user.id in database:
-        del database[message.from_user.id]
-        remove_user_from_file(message.from_user.id)
-        print(f'user {message.from_user.username} removed from database')
-        await bot.send_message(message.chat.id, "Вы ушли с пути сигма гриндсета! Чтобы не быть ничтожеством, запишитесь на грайнд с помощью /grind")
+
+        markup = aiogram.types.InlineKeyboardMarkup()
+        item1 = aiogram.types.InlineKeyboardButton('Да', callback_data=Calldata.LOSE_YES)
+        item2 = aiogram.types.InlineKeyboardButton('Нет', callback_data=Calldata.LOSE_NO)
+        markup.add(item1, item2)
+        await bot.send_message(message.chat.id, 'Вы точно хотите отписаться от гринда? (Весь прогресс будет потерян)', reply_markup=markup)
+
     else:
         await bot.send_message(message.chat.id, "Вы не записывались на грайнд. Чтобы стать сигмой, используйте /grind")
 
 
 @dp.message_handler(commands=['swear'])
-async def swear(message):
+async def swear(message: Message):
     count = None
     arg = message.text.partition(' ')[2]
     if (arg):
@@ -88,30 +112,21 @@ async def swear(message):
     await bot.send_message(message.chat.id, generate_swearline(count))
 
 
-ADMIN_SHOW_DATABASE     = 'ADMIN_SHOW_DATABASE'
-ADMIN_SAVE_DATABASE     = 'ADMIN_SAVE_DATABASE'
-ADMIN_GET_CHECK_TIME    = 'ADMIN_GET_CHECK_TIME'
-GRIND_CHECK_YES         = 'GRIND_CHECK_YES'
-GRIND_CHECK_NO          = 'GRIND_CHECK_NO'
-ADMIN_SEND_ALL_YES      = 'ADMIN_SEND_ALL_YES'
-ADMIN_SEND_ALL_NO       = 'ADMIN_SEND_ALL_NO'
-
-
 @dp.message_handler(aiogram.dispatcher.filters.Text(equals='/admin'), commands=['admin'])
-async def admin_control_panel(message):
+async def admin_control_panel(message: Message):
     if message.from_user.id != ADMIN_ID:
         await bot.send_message(message.chat.id, "У вас нет прав администратора")
         return
     markup = aiogram.types.InlineKeyboardMarkup(row_width=1)
-    item1 = aiogram.types.InlineKeyboardButton('Сохранить базу данных', callback_data=ADMIN_SAVE_DATABASE)
-    item2 = aiogram.types.InlineKeyboardButton('Показать базу данных', callback_data=ADMIN_SHOW_DATABASE)
-    item3 = aiogram.types.InlineKeyboardButton('Показать время проверки', callback_data=ADMIN_GET_CHECK_TIME)
+    item1 = aiogram.types.InlineKeyboardButton('Сохранить базу данных', callback_data=Calldata.ADMIN_SAVE_DATABASE)
+    item2 = aiogram.types.InlineKeyboardButton('Показать базу данных', callback_data=Calldata.ADMIN_SHOW_DATABASE)
+    item3 = aiogram.types.InlineKeyboardButton('Показать время проверки', callback_data=Calldata.ADMIN_GET_CHECK_TIME)
     markup.add(item1, item2, item3)
     await bot.send_message(message.chat.id, 'Панель администратора', reply_markup=markup)
 
 
 @dp.message_handler(commands=['admin'])
-async def admin_send_all(message):
+async def admin_send_all(message: Message):
     if message.from_user.id != ADMIN_ID:
         await bot.send_message(message.chat.id, "У вас нет прав администратора")
         return
@@ -119,16 +134,12 @@ async def admin_send_all(message):
     command, _, arg = command.partition(' ')
     if command == 'sendall':
         markup = aiogram.types.InlineKeyboardMarkup()
-        item1 = aiogram.types.InlineKeyboardButton('Да', callback_data=ADMIN_SEND_ALL_YES)
-        item2 = aiogram.types.InlineKeyboardButton('Нет', callback_data=ADMIN_SEND_ALL_NO)
+        item1 = aiogram.types.InlineKeyboardButton('Да', callback_data=Calldata.ADMIN_SEND_ALL_YES)
+        item2 = aiogram.types.InlineKeyboardButton('Нет', callback_data=Calldata.ADMIN_SEND_ALL_NO)
         markup.add(item1, item2)
         global send_all_message
         send_all_message = arg
         await bot.send_message(message.chat.id, 'Вы уверены, что хотите отправить сообщение: \"' + send_all_message + '\"', reply_markup=markup, parse_mode='html')
-    elif command == 'setmessage':
-        global check_message
-        check_message = arg
-        await bot.send_message(message.chat.id, 'Новое сообщение проверки установлено. Вот его текст:\n\'' + check_message + '\'')
     elif command == 'debuggrindcheck':
         await grindcheck()
     else:
@@ -136,7 +147,7 @@ async def admin_send_all(message):
 
 
 @dp.message_handler(commands=["getuser"])
-async def answer(message):
+async def answer(message: Message):
     if (message.from_user.id == ADMIN_ID):
         userid = int(message.text.split(maxsplit=1)[1])
         UsrInfo = (await bot.get_chat_member(userid, userid)).user
@@ -145,7 +156,7 @@ async def answer(message):
 
 
 @dp.message_handler()
-async def random_stoic_quote(message):
+async def random_stoic_quote(message: Message):
     if message.text.lower().startswith('привет'):
         await message.answer('И тебе привет! Используй /help для помощи')
     else:
@@ -190,10 +201,6 @@ def sigint_handler():
     sys.exit(0)
 
 
-RANKS = ['пикочад', 'наночад', 'микрочад', 'чад', 'килочад', 'мегачад', 'терачад', 'экзачад',
-        'зетачад', 'йотачад', 'богочад', 'дальше просто некуда']
-RANK_MARGINS = {1, 3, 5, 10, 20, 30, 50, 80, 100, 150}
-
 def show_progress(user):
     days = database[user.id]
 
@@ -202,6 +209,7 @@ def show_progress(user):
     else:
         status = f"{user.first_name} {user.last_name}: гриндишь на протяжении {days} дней!\n"
 
+    #TODO: use list elements instead of hardcoded values
     if days < 1:
         rank = 0
         progress_bar = generate_progress_bar(0, days, 1)
@@ -249,20 +257,18 @@ def generate_progress_bar(start, current, maxvalue):
 async def grindcheck():
     print('sending the grindchecks')
     markup = aiogram.types.InlineKeyboardMarkup()
-    item1 = aiogram.types.InlineKeyboardButton('Да', callback_data=GRIND_CHECK_YES)
-    item2 = aiogram.types.InlineKeyboardButton('Нет', callback_data=GRIND_CHECK_NO)
+    item1 = aiogram.types.InlineKeyboardButton('Да', callback_data=Calldata.GRIND_CHECK_YES)
+    item2 = aiogram.types.InlineKeyboardButton('Нет', callback_data=Calldata.GRIND_CHECK_NO)
     markup.add(item1, item2)
-    #TODO: send in parallel
-    for entry in database:
-        if check_message:
-            await bot.send_message(entry, check_message)
-        await bot.send_message(entry, 'Гриндил ли ты сегодня?', reply_markup=markup)
+    asyncio.gather(*(bot.send_message(entry, 'Гриндил ли ты сегодня?', reply_markup=markup) for entry in database))
 
 
 @dp.callback_query_handler()
 async def callback(call):
-    if call.message:
-        if call.data == GRIND_CHECK_YES:
+    if call.message is None:
+        return
+    match call.data:
+        case Calldata.GRIND_CHECK_YES:
             await bot.edit_message_text(call.message.text, call.message.chat.id, call.message.message_id)
             database[call.from_user.id] += 1
             save_user_to_file(call.from_user.id)
@@ -271,15 +277,14 @@ async def callback(call):
             # проверка на достижение нового уровня
             if database[call.from_user.id] in RANK_MARGINS:
                 await bot.send_message(call.message.chat.id, 'Поздравляю, ты достиг нового звания! Используй /progress, чтобы узнать больше')
-
-        elif call.data == GRIND_CHECK_NO:
+        case Calldata.GRIND_CHECK_NO:
             await bot.edit_message_text(call.message.text, call.message.chat.id, call.message.message_id)
             ans = generate_swearline() 
             await bot.send_message(call.message.chat.id, ans)
-        elif call.data == ADMIN_SAVE_DATABASE:
+        case Calldata.ADMIN_SAVE_DATABASE:
             save_database(DATABASE_DIR)
             await bot.send_message(call.message.chat.id, 'База данных успешно сохранена')
-        elif call.data == ADMIN_SHOW_DATABASE:
+        case Calldata.ADMIN_SHOW_DATABASE:
             users = []
             for userid, data in database.items():
                 user_info = (await bot.get_chat_member(userid, userid)).user
@@ -288,28 +293,33 @@ async def callback(call):
                 else:
                     users.append(f'{user_info.first_name} {user_info.last_name} ({userid}): {data}')
             await bot.send_message(call.message.chat.id, '\n'.join(users))
-        elif call.data == ADMIN_SEND_ALL_YES:
+        case Calldata.ADMIN_SEND_ALL_YES:
             await bot.edit_message_text(call.message.text, call.message.chat.id, call.message.message_id)
             await bot.send_message(call.message.chat.id, 'Сообщение отправлено')
             print('sending to everyone:', send_all_message)
-            #TODO: send in parallel
-            for entry in database:
-                await bot.send_message(entry, send_all_message, parse_mode='html')
-        elif call.data == ADMIN_SEND_ALL_NO:
+            await asyncio.gather(*(bot.send_message(entry, send_all_message, parse_mode='html') for entry in database))
+        case Calldata.ADMIN_SEND_ALL_NO:
             await bot.edit_message_text(call.message.text, call.message.chat.id, call.message.message_id)
             await bot.send_message(call.message.chat.id, 'Отправка сообщения отменена')
-        elif call.data == ADMIN_GET_CHECK_TIME:
-            await bot.send_message(call.message.chat.id, f'''Время отправки сообщений - {grindcheck_time[0]}:{grindcheck_time[1]}''')
-        else:
+        case Calldata.ADMIN_GET_CHECK_TIME:
+            await bot.send_message(call.message.chat.id, f'''Время отправки сообщений - {GRINDCHECK_TIME[0]}:{GRINDCHECK_TIME[1]}''')
+        case Calldata.LOSE_YES:
+            await call.message.edit_reply_markup()
+            del database[call.from_user.id]
+            remove_user_from_file(call.from_user.id)
+            print(f'user {call.from_user.username} removed from database')
+            await bot.send_message(call.message.chat.id, "Вы ушли с пути сигма гриндсета! Чтобы не быть ничтожеством, запишитесь на грайнд с помощью /grind")
+        case Calldata.LOSE_NO:
+            await call.message.edit_reply_markup()
+            await bot.send_message(call.message.chat.id, "Вы остались на верном пути сигма гриндсета")
+        case _:
             print(f'unknown callback: {call.data}')
 
 async def grindcheck_loop():
     while True:
         # проверка гринда каждый день
-        global grindcheck_time
-        grindcheck_time = (20, 52)
 
-        hour, minute = grindcheck_time[0] - 3, grindcheck_time[1]
+        hour, minute = GRINDCHECK_TIME[0] - 3, GRINDCHECK_TIME[1]
         now = datetime.utcnow()
         to = now.replace(hour=hour, minute=minute)
         if now >= to:
@@ -322,8 +332,6 @@ async def grindcheck_loop():
         await grindcheck()
 
 async def main():
-    global database
-    database = {}
     
     # read the database
     print('Loading the database...')
