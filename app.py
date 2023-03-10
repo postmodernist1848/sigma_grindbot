@@ -31,7 +31,8 @@ ADMIN_ID = 664863967
 
 check_message = ''
 
-bot = aiogram.Bot(token=credentials.bot_token)
+PROXY_URL = "http://proxy.server:3128"
+bot = aiogram.Bot(token=credentials.bot_token, proxy=PROXY_URL)
 dp = aiogram.Dispatcher(bot)
 
 @dp.message_handler(commands=['help'])
