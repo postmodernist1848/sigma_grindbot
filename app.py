@@ -1,6 +1,6 @@
 '''
 TODO:
-1. Database
+1. Remove a user after n days of no interraction with the bot
 2. Farm
 '''
 import aiogram
@@ -16,6 +16,7 @@ import linecache
 import random
 
 import shelve
+from database import DAYS_TIL_DELETION, Userdata
 
 ##################### Globals ##################################################
 
@@ -56,7 +57,9 @@ RANK_MARGINS_SET: Final[Set[int]] = {1, 3, 5, 10, 20, 30, 50, 80, 100, 150}
 GRINDCHECK_TIME: Final[Tuple[int, int]] = (19, 20)
 
 DATABASE_FILENAME: Final[str] = 'database.db'
-database: shelve.Shelf[int] = shelve.open(DATABASE_FILENAME)
+database: shelve.Shelf[Userdata] = shelve.open(DATABASE_FILENAME, writeback=True)
+
+DAYS_TIL_DELETION: Final[int] = 20
 
 ################################################################################
 
@@ -74,7 +77,7 @@ async def send_welcome(message: Message):
 @dp.message_handler(commands=['grind'])
 async def grind(message: Message):
     if str(message.from_user.id) not in database:
-        database[str(message.from_user.id)] = 0
+        database[str(message.from_user.id)] = Userdata()
         print(f'user {message.from_user.username} added to database')
         await bot.send_message(message.chat.id, "Вы записаны на гринд!")
     else:
@@ -176,7 +179,7 @@ def sigint_handler():
 
 
 def show_progress(user: User):
-    days = database[str(user.id)]
+    days = database[str(user.id)].days
 
     if user.username:
         status = f"{user.username}: гриндишь на протяжении {days} дней!\n"
@@ -228,13 +231,31 @@ def generate_progress_bar(start: int, current: int, maxvalue: int) -> str:
     return str(start) + ' [' + '■' * filled_count + '□' * (length - filled_count) + '] ' + str(maxvalue)
 
 
+async def remove_user_with_notification(userid: str):
+    del database[userid]
+    print(f'user {userid} removed from database')
+    await bot.send_message(userid, "Вы ушли с пути сигма гриндсета! Чтобы не быть ничтожеством, запишитесь на грайнд с помощью /grind")
+
+
+async def send_check(user: str, markup: aiogram.types.InlineKeyboardMarkup):
+    await bot.send_message(user, 'Гриндил ли ты сегодня?', reply_markup=markup)
+    database[user].days_since_last_check += 1
+    days_since_last_check = database[user].days_since_last_check
+    print(user, days_since_last_check)
+    if DAYS_TIL_DELETION <= days_since_last_check:
+        await remove_user_with_notification(user)
+    elif DAYS_TIL_DELETION - days_since_last_check <= 3:
+        await bot.send_message(user, f'''Внимание! Вы не гриндили более {DAYS_TIL_DELETION - 3} дней. \
+Мы будем вынуждены удалить вас из базы данных через {DAYS_TIL_DELETION - days_since_last_check} дней''')
+
+
 async def grindcheck():
     print('sending the grindchecks')
     markup = aiogram.types.InlineKeyboardMarkup()
     item1 = aiogram.types.InlineKeyboardButton('Да', callback_data=Calldata.GRIND_CHECK_YES)
     item2 = aiogram.types.InlineKeyboardButton('Нет', callback_data=Calldata.GRIND_CHECK_NO)
     markup.add(item1, item2)
-    await asyncio.gather(*(bot.send_message(entry, 'Гриндил ли ты сегодня?', reply_markup=markup) for entry in database))
+    await asyncio.gather(*(send_check(entry, markup) for entry in database))
 
 
 @dp.callback_query_handler()
@@ -245,11 +266,15 @@ async def callback(call):
     match call.data:
         case Calldata.GRIND_CHECK_YES:
             await bot.edit_message_text(call.message.text, call.message.chat.id, call.message.message_id)
-            database[call.from_user.id] += 1
+            user: str = str(call.from_user.id)
+            if user not in database:
+                return
+            database[user].days_since_last_check = 0
+            database[user].days += 1
             await bot.send_message(call.message.chat.id, 'Keep up the grind!')
 
             # проверка на достижение нового уровня
-            if database[call.from_user.id] in RANK_MARGINS_SET:
+            if database[user].days in RANK_MARGINS_SET:
                 await bot.send_message(call.message.chat.id, 'Поздравляю, ты достиг нового звания! Используй /progress, чтобы узнать больше')
         case Calldata.GRIND_CHECK_NO:
             await bot.edit_message_text(call.message.text, call.message.chat.id, call.message.message_id)
@@ -261,12 +286,12 @@ async def callback(call):
         case Calldata.ADMIN_SHOW_DATABASE:
             users = []
             for userid, data in database.items():
-                user_info = (await bot.get_chat_member(userid, int(userid))).user
+                user_info = (await bot.get_chat_member(int(userid), int(userid))).user
                 if user_info.username:
-                    users.append(f'@{user_info.username} ({userid}): {data}')
+                    users.append(f'@{user_info.username} ({userid}): {repr(data)}')
                 else:
-                    users.append(f'{user_info.first_name} {user_info.last_name} ({userid}): {data}')
-            await bot.send_message(call.message.chat.id, '\n'.join(users))
+                    users.append(f'{user_info.first_name} {user_info.last_name} ({userid}): {repr(data)}')
+            await bot.send_message(call.message.chat.id, 'База данных:\n' + '\n'.join(users))
         case Calldata.ADMIN_SEND_ALL_YES:
             await bot.edit_message_text(call.message.text, call.message.chat.id, call.message.message_id)
             await bot.send_message(call.message.chat.id, 'Сообщение отправлено')
@@ -279,9 +304,7 @@ async def callback(call):
             await bot.send_message(call.message.chat.id, f'''Время отправки сообщений - {GRINDCHECK_TIME[0]}:{GRINDCHECK_TIME[1]}''')
         case Calldata.LOSE_YES:
             await call.message.edit_reply_markup()
-            del database[call.from_user.id]
-            print(f'user {call.from_user.username} removed from database')
-            await bot.send_message(call.message.chat.id, "Вы ушли с пути сигма гриндсета! Чтобы не быть ничтожеством, запишитесь на грайнд с помощью /grind")
+            await remove_user_with_notification(str(call.from_user.username))
         case Calldata.LOSE_NO:
             await call.message.edit_reply_markup()
             await bot.send_message(call.message.chat.id, "Вы остались на верном пути сигма гриндсета")
@@ -297,6 +320,7 @@ async def grindcheck_loop():
         if now >= to:
             to += timedelta(days=1)
         seconds_to_wait = (to - now).total_seconds()
+        seconds_to_wait = 10
         print(f'waiting for {seconds_to_wait} seconds')
         await asyncio.sleep(seconds_to_wait)
         await grindcheck()
