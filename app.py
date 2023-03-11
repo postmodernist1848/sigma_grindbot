@@ -16,7 +16,7 @@ import linecache
 import random
 
 import shelve
-from database import DAYS_TIL_DELETION, Userdata
+from database import Userdata
 
 ##################### Globals ##################################################
 
@@ -241,10 +241,10 @@ async def send_check(user: str, markup: aiogram.types.InlineKeyboardMarkup):
     await bot.send_message(user, 'Гриндил ли ты сегодня?', reply_markup=markup)
     database[user].days_since_last_check += 1
     days_since_last_check = database[user].days_since_last_check
-    print(user, days_since_last_check)
     if DAYS_TIL_DELETION <= days_since_last_check:
         await remove_user_with_notification(user)
     elif DAYS_TIL_DELETION - days_since_last_check <= 3:
+        print(f'deleting user {user} in {DAYS_TIL_DELETION - days_since_last_check} days')
         await bot.send_message(user, f'''Внимание! Вы не гриндили более {DAYS_TIL_DELETION - 3} дней. \
 Мы будем вынуждены удалить вас из базы данных через {DAYS_TIL_DELETION - days_since_last_check} дней''')
 
@@ -320,7 +320,6 @@ async def grindcheck_loop():
         if now >= to:
             to += timedelta(days=1)
         seconds_to_wait = (to - now).total_seconds()
-        seconds_to_wait = 10
         print(f'waiting for {seconds_to_wait} seconds')
         await asyncio.sleep(seconds_to_wait)
         await grindcheck()
