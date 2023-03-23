@@ -173,7 +173,7 @@ async def random_stoic_quote(message: Message):
         print('ans: ' + quote + author)
         await message.answer(quote + author)
 
-def sigint_handler():
+def stop_application():
     database.close()
     sys.exit(0)
 
@@ -331,6 +331,17 @@ async def save_loop():
         database.sync()
         print('Database saved')
 
+async def close_before_restarting():
+    hour, minute = 15, 50
+    now = datetime.utcnow()
+    to = now.replace(hour=hour, minute=minute)
+    if now >= to:
+        to += timedelta(days=1)
+    seconds_to_wait = (to - now).total_seconds()
+    print(f'closing in {seconds_to_wait} seconds')
+    await asyncio.sleep(seconds_to_wait)
+    stop_application()
+
 async def main():
 
     print("Database: {")
@@ -338,8 +349,8 @@ async def main():
         print(f'{key}: {value}')
     print('}')
 
-    asyncio.get_running_loop().add_signal_handler(signal.SIGINT, sigint_handler)
-    await asyncio.gather(dp.start_polling(), grindcheck_loop(), save_loop())
+    asyncio.get_running_loop().add_signal_handler(signal.SIGINT, stop_application)
+    await asyncio.gather(dp.start_polling(), grindcheck_loop(), save_loop(), close_before_restarting())
 
 if __name__ == '__main__':
     asyncio.run(main())
