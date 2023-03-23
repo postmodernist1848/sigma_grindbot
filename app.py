@@ -324,6 +324,12 @@ async def grindcheck_loop():
         await asyncio.sleep(seconds_to_wait)
         await grindcheck()
 
+async def save_loop():
+    while True:
+        hour = 60 * 60
+        await asyncio.sleep(hour)
+        database.sync()
+        print('Database saved')
 
 async def main():
 
@@ -333,7 +339,7 @@ async def main():
     print('}')
 
     asyncio.get_running_loop().add_signal_handler(signal.SIGINT, sigint_handler)
-    await asyncio.gather(dp.start_polling(), grindcheck_loop())
+    await asyncio.gather(dp.start_polling(), grindcheck_loop(), save_loop())
 
 if __name__ == '__main__':
     asyncio.run(main())
