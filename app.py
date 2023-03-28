@@ -27,6 +27,7 @@ HELP_MESSAGE: Final[str] = '''Этот бот позволяет вам вста
 /progress - проверить собственный прогресс
 /lose - уйти с пути сигмы и стать неудачником
 /swear <число> - сгенерировать случайное ругательство, опционально можно выбрать длину
+/iqtest - тест IQ
 '''
 ADMIN_ID: Final[int] = 664863967
 
@@ -116,6 +117,12 @@ async def swear(message: Message):
             pass
 
     await bot.send_message(message.chat.id, generate_swearline(count))
+
+@dp.message_handler(commands=['iqtest'])
+async def iqtest(message: Message):
+    await bot.send_message(message.chat.id, 'Считаю IQ...')
+    await asyncio.sleep(2)
+    await bot.send_message(message.chat.id, f'Твой IQ: {message.from_user.id % 100 + 50}')
 
 
 @dp.message_handler(aiogram.dispatcher.filters.Text(equals='/admin'), commands=['admin'])
