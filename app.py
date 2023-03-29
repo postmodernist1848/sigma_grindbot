@@ -4,7 +4,7 @@ TODO:
 2. Farm
 '''
 import aiogram
-from aiogram.utils.exceptions import BotBlocked
+from aiogram.utils.exceptions import BotBlocked, ChatNotFound
 from aiogram.types import Message, User
 from typing import Final, List, Set, Tuple
 import credentials
@@ -160,13 +160,58 @@ async def admin_send_all(message: Message):
         await bot.send_message(message.chat.id, 'Неизвестная команда администратора')
 
 
+
+USAGE: Final[str] =  'Usage: /database update <user> [data] | remove <user>'
+@dp.message_handler(commands=['database'])
+async def database_query(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        await bot.send_message(message.chat.id, "У вас нет прав администратора")
+        return
+
+    args = message.text.split()
+    if len(args) < 2:
+        await bot.send_message(message.chat.id, USAGE)
+        return
+    match args[1]:
+        case 'update':
+            if len(args) < 3:
+                await bot.send_message(message.chat.id, 'Недостаточно аргументов')
+                return
+            _, _, user, *items = args
+            try:
+                items = [int(item) for item in items]
+            except ValueError:
+                await bot.send_message(message.chat.id, 'Все аргументы должны быть целочисленными')
+                return
+            try:
+                database[user] = Userdata(*items)
+                await bot.send_message(message.chat.id, f'User id {user}: {database[user]} добавлен в базу данных')
+            except TypeError:
+                await bot.send_message(message.chat.id, 'Неверные аргументы Userdata')
+
+        case 'remove':
+            if len(args) < 3:
+                await bot.send_message(message.chat.id, 'Недостаточно аргументов')
+                return
+            if args[2] in database:
+                del database[args[2]]
+                await bot.send_message(message.chat.id, f'Пользователь {args[2]} был удален из базы данных')
+            else:
+                await bot.send_message(message.chat.id, f'User id {args[2]} не найден в базе данных')
+        case _:
+            await bot.send_message(message.chat.id, 'Неизвестная субкоманда')
+
+
+
 @dp.message_handler(commands=["getuser"])
-async def answer(message: Message):
-    if (message.from_user.id == ADMIN_ID):
-        userid = int(message.text.split(maxsplit=1)[1])
-        UsrInfo = (await bot.get_chat_member(userid, userid)).user
-        await bot.send_message(message.chat.id, "Id: " + str(UsrInfo.id) + "\nFirst Name: " + str(UsrInfo.first_name) + "\nLast Name: " + str(UsrInfo.last_name) +
-                            "\nUsername: @" + str(UsrInfo.username))
+async def get_user(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        await bot.send_message(message.chat.id, "У вас нет прав администратора")
+        return
+    userid = int(message.text.split(maxsplit=1)[1])
+    UsrInfo = (await bot.get_chat_member(userid, userid)).user
+    await bot.send_message(message.chat.id, "Id: " + str(UsrInfo.id) + "\nFirst Name: " + str(UsrInfo.first_name) + "\nLast Name: " + str(UsrInfo.last_name) +
+                        "\nUsername: @" + str(UsrInfo.username))
 
 
 @dp.message_handler()
@@ -298,11 +343,16 @@ async def callback(call):
         case Calldata.ADMIN_SHOW_DATABASE:
             users = []
             for userid, data in database.items():
-                user_info = (await bot.get_chat_member(int(userid), int(userid))).user
+                try:
+                    user_info = (await bot.get_chat_member(int(userid), int(userid))).user
+                except ChatNotFound:
+                    users.append(f'Unknown username ({userid}): {data}')
+                    continue
+
                 if user_info.username:
-                    users.append(f'@{user_info.username} ({userid}): {repr(data)}')
+                    users.append(f'@{user_info.username} ({userid}): {data}')
                 else:
-                    users.append(f'{user_info.first_name} {user_info.last_name} ({userid}): {repr(data)}')
+                    users.append(f'{user_info.first_name} {user_info.last_name} ({userid}): {data}')
             await bot.send_message(call.message.chat.id, 'База данных:\n' + '\n'.join(users))
         case Calldata.ADMIN_SEND_ALL_YES:
             await bot.edit_message_text(call.message.text, call.message.chat.id, call.message.message_id)
