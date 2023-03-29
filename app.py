@@ -308,7 +308,7 @@ async def callback(call):
             await bot.edit_message_text(call.message.text, call.message.chat.id, call.message.message_id)
             await bot.send_message(call.message.chat.id, 'Сообщение отправлено')
             print('sending to everyone:', send_all_message)
-            await asyncio.gather(*(bot.send_message(entry, send_all_message, parse_mode='html') for entry in database))
+            await asyncio.gather(*(send_all_block_handling(entry) for entry in database))
         case Calldata.ADMIN_SEND_ALL_NO:
             await bot.edit_message_text(call.message.text, call.message.chat.id, call.message.message_id)
             await bot.send_message(call.message.chat.id, 'Отправка сообщения отменена')
@@ -322,6 +322,13 @@ async def callback(call):
             await bot.send_message(call.message.chat.id, "Вы остались на верном пути сигма гриндсета")
         case _:
             print(f'unknown callback: {call.data}')
+
+async def send_all_block_handling(chatid):
+    try:
+        await bot.send_message(chatid, send_all_message, parse_mode='html')
+    except BotBlocked:
+        print(f'User {chatid} blocked the bot')
+        pass
 
 async def grindcheck_loop():
     while True:
