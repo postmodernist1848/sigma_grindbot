@@ -4,6 +4,7 @@ TODO:
 2. Farm
 '''
 import aiogram
+from aiogram.utils.exceptions import BotBlocked
 from aiogram.types import Message, User
 from typing import Final, List, Set, Tuple
 import credentials
@@ -245,8 +246,12 @@ async def remove_user_with_notification(userid: str):
 
 
 async def send_check(user: str, markup: aiogram.types.InlineKeyboardMarkup):
-    await bot.send_message(user, 'Гриндил ли ты сегодня?', reply_markup=markup)
     database[user].days_since_last_check += 1
+    try:
+        await bot.send_message(user, 'Гриндил ли ты сегодня?', reply_markup=markup)
+    except BotBlocked:
+        print(f'User {user} blocked the bot')
+        return
     days_since_last_check = database[user].days_since_last_check
     if DAYS_TIL_DELETION <= days_since_last_check:
         await remove_user_with_notification(user)
