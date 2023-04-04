@@ -16,6 +16,8 @@ from swearing import generate_swearline
 import linecache
 import random
 
+import pathlib
+
 import shelve
 from database import Userdata
 
@@ -59,7 +61,8 @@ RANK_MARGINS_SET: Final[Set[int]] = {1, 3, 5, 10, 20, 30, 50, 80, 100, 150}
 GRINDCHECK_TIME: Final[Tuple[int, int]] = (19, 20)
 
 DATABASE_FILENAME: Final[str] = 'database.db'
-database: shelve.Shelf[Userdata] = shelve.open(DATABASE_FILENAME, writeback=True)
+DATABASE_DIR: Final[str] = str(pathlib.Path(__file__).parent.resolve())
+database: shelve.Shelf[Userdata] = shelve.open(DATABASE_DIR + '/' + DATABASE_FILENAME, writeback=True)
 
 DAYS_TIL_DELETION: Final[int] = 20
 
@@ -363,7 +366,8 @@ async def callback(call):
             await bot.edit_message_text(call.message.text, call.message.chat.id, call.message.message_id)
             await bot.send_message(call.message.chat.id, 'Отправка сообщения отменена')
         case Calldata.ADMIN_GET_CHECK_TIME:
-            await bot.send_message(call.message.chat.id, f'''Время отправки сообщений - {GRINDCHECK_TIME[0]}:{GRINDCHECK_TIME[1]}''')
+            await bot.send_message(call.message.chat.id, f'Время отправки сообщений - {GRINDCHECK_TIME[0]}:{GRINDCHECK_TIME[1]}')
+            await bot.send_message(call.message.chat.id, f'Осталось {secs_until(GRINDCHECK_TIME[0] - 3, GRINDCHECK_TIME[1])}')
         case Calldata.LOSE_YES:
             await call.message.edit_reply_markup()
             await remove_user_with_notification(str(call.from_user.username))
@@ -380,15 +384,19 @@ async def send_all_block_handling(chatid):
         print(f'User {chatid} blocked the bot')
         pass
 
+def secs_until(hour: int, minute: int) -> int:
+    now = datetime.utcnow()
+    to = now.replace(hour=hour, minute=minute)
+    if now >= to:
+        to += timedelta(days=1)
+    seconds_to_wait = int((to - now).total_seconds())
+    return seconds_to_wait
+
 async def grindcheck_loop():
     while True:
         # проверка гринда каждый день
         hour, minute = GRINDCHECK_TIME[0] - 3, GRINDCHECK_TIME[1]
-        now = datetime.utcnow()
-        to = now.replace(hour=hour, minute=minute)
-        if now >= to:
-            to += timedelta(days=1)
-        seconds_to_wait = (to - now).total_seconds()
+        seconds_to_wait = secs_until(hour, minute)
         print(f'waiting for {seconds_to_wait} seconds')
         await asyncio.sleep(seconds_to_wait)
         await grindcheck()
@@ -400,22 +408,24 @@ async def save_loop():
         database.sync()
         print('Database saved')
 
+#calculates left - right where left, right are (hour, minute) tuples
+def time_sub(left: Tuple[int, int], right: Tuple[int, int]) -> Tuple[int, int]:
+    minutes = (left[0] * 60 + left[1] - (right[0] * 60 + right[1])) % (24 * 60)
+    return divmod(minutes, 60)
+
 async def close_before_restarting():
-    hour, minute = 15, 50
-    now = datetime.utcnow()
-    to = now.replace(hour=hour, minute=minute)
-    if now >= to:
-        to += timedelta(days=1)
-    seconds_to_wait = (to - now).total_seconds()
+    hour, minute = time_sub(GRINDCHECK_TIME, (0, 10))
+                                #utc
+    seconds_to_wait = secs_until(hour - 3, minute)
     print(f'closing in {seconds_to_wait} seconds')
     await asyncio.sleep(seconds_to_wait)
     stop_application()
 
 async def main():
 
-    print("Database: {")
+    print(f"Database ({DATABASE_DIR + '/' + DATABASE_FILENAME}): {{")
     for key, value in database.items():
-        print(f'{key}: {value}')
+        print(f'    {key}: {value}')
     print('}')
 
     asyncio.get_running_loop().add_signal_handler(signal.SIGINT, stop_application)
