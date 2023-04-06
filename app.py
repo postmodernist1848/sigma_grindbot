@@ -1,7 +1,6 @@
 '''
 TODO:
-1. Remove a user after n days of no interraction with the bot
-2. Farm
+1. Farm
 '''
 import aiogram
 from aiogram.utils.exceptions import BotBlocked, ChatNotFound
@@ -62,7 +61,6 @@ GRINDCHECK_TIME: Final[Tuple[int, int]] = (19, 20)
 
 DATABASE_FILENAME: Final[str] = 'database.db'
 DATABASE_DIR: Final[str] = str(pathlib.Path(__file__).parent.resolve())
-database: shelve.Shelf[Userdata] = shelve.open(DATABASE_DIR + '/' + DATABASE_FILENAME, writeback=True)
 
 DAYS_TIL_DELETION: Final[int] = 20
 
@@ -366,8 +364,8 @@ async def callback(call):
             await bot.edit_message_text(call.message.text, call.message.chat.id, call.message.message_id)
             await bot.send_message(call.message.chat.id, 'Отправка сообщения отменена')
         case Calldata.ADMIN_GET_CHECK_TIME:
-            await bot.send_message(call.message.chat.id, f'Время отправки сообщений - {GRINDCHECK_TIME[0]}:{GRINDCHECK_TIME[1]}')
-            await bot.send_message(call.message.chat.id, f'Осталось {secs_until(GRINDCHECK_TIME[0] - 3, GRINDCHECK_TIME[1])}')
+            await bot.send_message(call.message.chat.id, f'Время отправки сообщений - {GRINDCHECK_TIME[0]}:{GRINDCHECK_TIME[1]}\n\
+Осталось {secs_until(GRINDCHECK_TIME[0] - 3, GRINDCHECK_TIME[1])} секунд')
         case Calldata.LOSE_YES:
             await call.message.edit_reply_markup()
             await remove_user_with_notification(str(call.from_user.username))
@@ -414,7 +412,7 @@ def time_sub(left: Tuple[int, int], right: Tuple[int, int]) -> Tuple[int, int]:
     return divmod(minutes, 60)
 
 async def close_before_restarting():
-    hour, minute = time_sub(GRINDCHECK_TIME, (0, 10))
+    hour, minute = time_sub(GRINDCHECK_TIME, (0, 30))
                                 #utc
     seconds_to_wait = secs_until(hour - 3, minute)
     print(f'closing in {seconds_to_wait} seconds')
@@ -423,6 +421,8 @@ async def close_before_restarting():
 
 async def main():
 
+    global database
+    database = shelve.open(DATABASE_DIR + '/' + DATABASE_FILENAME, writeback=True)
     print(f"Database ({DATABASE_DIR + '/' + DATABASE_FILENAME}): {{")
     for key, value in database.items():
         print(f'    {key}: {value}')
