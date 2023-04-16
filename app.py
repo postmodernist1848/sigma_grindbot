@@ -4,8 +4,9 @@ TODO:
 '''
 import aiogram
 from aiogram.utils.exceptions import BotBlocked, ChatNotFound
-from aiogram.types import Message, User
+from aiogram.types import Message, User, ContentTypes, message
 from typing import Final, List, Set, Tuple
+
 import credentials
 import asyncio
 import signal
@@ -15,12 +16,17 @@ from swearing import generate_swearline
 import linecache
 import random
 
+from moviepy.editor import VideoFileClip, AudioFileClip
+import tempfile
+
 import pathlib
 
 import shelve
 from database import Userdata
 
-##################### Globals ##################################################
+import time
+
+##################### Constants ################################################
 
 HELP_MESSAGE: Final[str] = '''Этот бот позволяет вам встать на путь sigma male grindset и гриндить каждый день.
 
@@ -45,13 +51,6 @@ class Calldata:
     LOSE_YES             : Final[str] = 'LOSE_YES'
     LOSE_NO              : Final[str] = 'LOSE_NO'
 
-if not credentials.local:
-    PROXY_URL: Final[str] = "http://proxy.server:3128"
-    bot = aiogram.Bot(token=credentials.bot_token, proxy=PROXY_URL)
-else:
-    bot = aiogram.Bot(token=credentials.bot_token)
-
-dp = aiogram.Dispatcher(bot)
 
 RANKS: Final[List[str]] = ['пикочад', 'наночад', 'микрочад', 'чад', 'килочад', 'мегачад', 'терачад', 'экзачад',
         'зетачад', 'йотачад', 'богочад', 'дальше просто некуда']
@@ -60,12 +59,26 @@ RANK_MARGINS_SET: Final[Set[int]] = {1, 3, 5, 10, 20, 30, 50, 80, 100, 150}
 GRINDCHECK_TIME: Final[Tuple[int, int]] = (19, 20)
 
 DATABASE_FILENAME: Final[str] = 'database.db'
-DATABASE_DIR: Final[str] = str(pathlib.Path(__file__).parent.resolve())
+EXECUTION_DIR: Final[str] = str(pathlib.Path(__file__).parent.resolve())
 
 DAYS_TIL_DELETION: Final[int] = 20
 
-################################################################################
+VIDEO_DURATION_LIMIT: Final[int] = 30
+VIDEO_LOAD_LIMIT: Final[int] = 4 # number of requests allowed simultaneously
 
+##################### Globals ##################################################
+
+if not credentials.local:
+    PROXY_URL: Final[str] = "http://proxy.server:3128"
+    bot = aiogram.Bot(token=credentials.bot_token, proxy=PROXY_URL)
+else:
+    bot = aiogram.Bot(token=credentials.bot_token)
+
+dp = aiogram.Dispatcher(bot)
+
+video_generation_load = 0
+
+################################################################################
 
 @dp.message_handler(commands=['help'])
 async def send_help(message: Message):
@@ -214,6 +227,55 @@ async def get_user(message: Message):
     await bot.send_message(message.chat.id, "Id: " + str(UsrInfo.id) + "\nFirst Name: " + str(UsrInfo.first_name) + "\nLast Name: " + str(UsrInfo.last_name) +
                         "\nUsername: @" + str(UsrInfo.username))
 
+async def send_sigma_walk_video(message: Message):
+    video = VideoFileClip(EXECUTION_DIR + '/' + "patrick_bateman360p.mp4")
+
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as tmp_file:
+
+        await message.audio.download(tmp_file.name)
+        audio = AudioFileClip(tmp_file.name)
+
+    duration = min(audio.duration, VIDEO_DURATION_LIMIT)
+    final_clip = video.set_audio(audio).loop(duration=duration)
+
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as tmp_file:
+        final_clip.write_videofile(tmp_file.name, verbose=False, logger=None)
+
+        reply_video = aiogram.types.InputFile(tmp_file.name, filename="sigma.mp4")
+        await message.reply_video(video=reply_video)
+
+
+@dp.message_handler(content_types=ContentTypes.AUDIO)
+async def handle_music(message: Message):
+
+    global video_generation_load
+    if video_generation_load >= VIDEO_LOAD_LIMIT:
+        await bot.send_message(message.chat.id, "Слишком большая нагрузка на бота. Попробуйте позже")
+        return
+
+    video_generation_load += 1
+
+    performer = message.audio.performer
+    title = message.audio.title
+    file_size = message.audio.file_size
+
+    print(f'''Processing {title} by {performer}, {round(file_size / (1024 * 1024), 2)} MB \
+from {user_to_str(message.from_user)}''')
+
+    await bot.send_message(message.chat.id, "Генерирую видео...")
+    start_time = time.time()
+    try:
+        await asyncio.wait_for(send_sigma_walk_video(message), timeout=40)
+    except asyncio.TimeoutError:
+        await message.reply("Время ожидания истекло")
+    except OSError as e:
+        print(e)
+        await message.reply("Не удалось сгенерировать видео")
+        await bot.send_message(ADMIN_ID, str(e))
+    else:
+        print(f'Video for {title} successfully generated. Took {round(time.time() - start_time, 2)} seconds')
+    finally:
+        video_generation_load -= 1
 
 @dp.message_handler()
 async def random_stoic_quote(message: Message):
@@ -315,6 +377,11 @@ async def grindcheck():
     markup.add(item1, item2)
     await asyncio.gather(*(send_check(entry, markup) for entry in database))
 
+def user_to_str(user: User):
+    if user.username:
+        return '@' + str(user.username)
+    else:
+        return user.first_name + ' ' + user.last_name
 
 @dp.callback_query_handler()
 async def callback(call):
@@ -349,11 +416,8 @@ async def callback(call):
                 except ChatNotFound:
                     users.append(f'Unknown username ({userid}): {data}')
                     continue
-
                 if user_info.username:
-                    users.append(f'@{user_info.username} ({userid}): {data}')
-                else:
-                    users.append(f'{user_info.first_name} {user_info.last_name} ({userid}): {data}')
+                    users.append(f'{user_to_str(user_info)} ({userid}): {data}')
             await bot.send_message(call.message.chat.id, 'База данных:\n' + '\n'.join(users))
         case Calldata.ADMIN_SEND_ALL_YES:
             await bot.edit_message_text(call.message.text, call.message.chat.id, call.message.message_id)
@@ -395,7 +459,7 @@ async def grindcheck_loop():
         # проверка гринда каждый день
         hour, minute = GRINDCHECK_TIME[0] - 3, GRINDCHECK_TIME[1]
         seconds_to_wait = secs_until(hour, minute)
-        print(f'waiting for {seconds_to_wait} seconds')
+        print(f'Grindcheck in {seconds_to_wait} seconds')
         await asyncio.sleep(seconds_to_wait)
         await grindcheck()
 
@@ -415,15 +479,15 @@ async def close_before_restarting():
     hour, minute = time_sub(GRINDCHECK_TIME, (0, 30))
                                 #utc
     seconds_to_wait = secs_until(hour - 3, minute)
-    print(f'closing in {seconds_to_wait} seconds')
+    print(f'Stopping application in {seconds_to_wait} seconds')
     await asyncio.sleep(seconds_to_wait)
     stop_application()
 
 async def main():
 
     global database
-    database = shelve.open(DATABASE_DIR + '/' + DATABASE_FILENAME, writeback=True)
-    print(f"Database ({DATABASE_DIR + '/' + DATABASE_FILENAME}): {{")
+    database = shelve.open(EXECUTION_DIR + '/' + DATABASE_FILENAME, writeback=True)
+    print(f"Database ({EXECUTION_DIR + '/' + DATABASE_FILENAME}): {{")
     for key, value in database.items():
         print(f'    {key}: {value}')
     print('}')
