@@ -355,19 +355,19 @@ async def remove_user_with_notification(userid: str):
 
 async def send_check(user: str, markup: aiogram.types.InlineKeyboardMarkup):
     database[user].days_since_last_check += 1
-    try:
-        await bot.send_message(user, 'Гриндил ли ты сегодня?', reply_markup=markup)
-    except BotBlocked:
-        print(f'User {user} blocked the bot')
-        return
     days_since_last_check = database[user].days_since_last_check
+    if 0 < DAYS_TIL_DELETION - days_since_last_check <= 3:
+        print(f'deleting user {user} in {DAYS_TIL_DELETION - days_since_last_check} days')
+        await bot.send_message(user, f'''Внимание! Вы не гриндили более {days_since_last_check} дня (день). \
+Мы будем вынуждены удалить вас из базы данных через {DAYS_TIL_DELETION - days_since_last_check} дня (день)''')
     if DAYS_TIL_DELETION <= days_since_last_check:
         await remove_user_with_notification(user)
-    elif DAYS_TIL_DELETION - days_since_last_check <= 3:
-        print(f'deleting user {user} in {DAYS_TIL_DELETION - days_since_last_check} days')
-        await bot.send_message(user, f'''Внимание! Вы не гриндили более {DAYS_TIL_DELETION - 3} дней. \
-Мы будем вынуждены удалить вас из базы данных через {DAYS_TIL_DELETION - days_since_last_check} дней''')
-
+    else:
+        try:
+            await bot.send_message(user, 'Гриндил ли ты сегодня?', reply_markup=markup)
+        except BotBlocked:
+            print(f'User {user} blocked the bot')
+            return
 
 async def grindcheck():
     print('sending the grindchecks')
