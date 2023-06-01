@@ -4,7 +4,7 @@ TODO:
 '''
 import aiogram
 from aiogram.utils.exceptions import BotBlocked, ChatNotFound
-from aiogram.types import Message, User, ContentTypes, message
+from aiogram.types import Message, User, ContentTypes
 from typing import Final, List, Set, Tuple
 
 import credentials
@@ -61,7 +61,7 @@ GRINDCHECK_TIME: Final[Tuple[int, int]] = (19, 20)
 DATABASE_FILENAME: Final[str] = 'database.db'
 EXECUTION_DIR: Final[str] = str(pathlib.Path(__file__).parent.resolve())
 
-DAYS_TIL_DELETION: Final[int] = 20
+DAYS_TIL_DELETION: Final[int] = 25
 
 VIDEO_DURATION_LIMIT: Final[int] = 30
 VIDEO_LOAD_LIMIT: Final[int] = 4 # number of requests allowed simultaneously
@@ -77,6 +77,8 @@ else:
 dp = aiogram.Dispatcher(bot)
 
 video_generation_load = 0
+
+forward_message = False
 
 ################################################################################
 
@@ -168,6 +170,11 @@ async def admin_send_all(message: Message):
         global send_all_message
         send_all_message = arg
         await bot.send_message(message.chat.id, 'Вы уверены, что хотите отправить сообщение: \"' + send_all_message + '\"', reply_markup=markup, parse_mode='html')
+    elif command == 'forward':
+        global forward_message
+        forward_message = True
+        await bot.send_message(message.chat.id, 'Отправь мне сообщение для пересылки всем:')
+
     elif command == 'debuggrindcheck':
         await grindcheck()
     else:
@@ -281,6 +288,8 @@ from {user_to_str(message.from_user)}''')
 async def random_stoic_quote(message: Message):
     if message.text.lower().startswith('привет'):
         await message.answer('И тебе привет! Используй /help для помощи')
+    elif forward_message and message.chat.id == ADMIN_ID:
+        await asyncio.gather(*(bot.forward_message(entry, from_chat_id=message.chat.id, message_id=message.message_id) for entry in database))
     else:
         print(f'{message.from_user.username}: {message.text}')
         quote_number = random.randint(0, 1773)
@@ -475,6 +484,7 @@ def time_sub(left: Tuple[int, int], right: Tuple[int, int]) -> Tuple[int, int]:
     minutes = (left[0] * 60 + left[1] - (right[0] * 60 + right[1])) % (24 * 60)
     return divmod(minutes, 60)
 
+
 async def close_before_restarting():
     hour, minute = time_sub(GRINDCHECK_TIME, (0, 30))
                                 #utc
@@ -492,7 +502,8 @@ async def main():
         print(f'    {key}: {value}')
     print('}')
 
-    asyncio.get_running_loop().add_signal_handler(signal.SIGINT, stop_application)
+    loop = asyncio.get_running_loop()
+    loop.add_signal_handler(signal.SIGINT, stop_application)
     await asyncio.gather(dp.start_polling(), grindcheck_loop(), save_loop(), close_before_restarting())
 
 if __name__ == '__main__':
