@@ -63,7 +63,7 @@ EXECUTION_DIR: Final[str] = str(pathlib.Path(__file__).parent.resolve())
 
 DAYS_TIL_DELETION: Final[int] = 25
 
-VIDEO_DURATION_LIMIT: Final[int] = 30
+VIDEO_DURATION_LIMIT: Final[int] = 60
 VIDEO_LOAD_LIMIT: Final[int] = 4 # number of requests allowed simultaneously
 
 ##################### Globals ##################################################
