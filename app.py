@@ -173,7 +173,7 @@ async def admin_send_all(message: Message):
     elif command == 'forward':
         global forward_message
         forward_message = True
-        await bot.send_message(message.chat.id, 'Отправь мне сообщение для пересылки всем:')
+        await bot.send_message(message.chat.id, 'Отправь мне сообщение для пересылки всем (/cancel для отмены):')
 
     elif command == 'debuggrindcheck':
         await grindcheck()
@@ -182,6 +182,9 @@ async def admin_send_all(message: Message):
 
 @dp.message_handler(commands=["cancel"])
 async def cancel(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        await bot.send_message(message.chat.id, "У вас нет прав администратора")
+        return
     global forward_message
     forward_message = False
     await bot.send_message(message.chat.id, 'Пересылка отменена')
