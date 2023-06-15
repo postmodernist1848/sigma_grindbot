@@ -180,6 +180,11 @@ async def admin_send_all(message: Message):
     else:
         await bot.send_message(message.chat.id, 'Неизвестная команда администратора')
 
+@dp.message_handler(commands=["cancel"])
+async def cancel(message: Message):
+    global forward_message
+    forward_message = False
+    await bot.send_message(message.chat.id, 'Пересылка отменена')
 
 
 USAGE: Final[str] =  'Usage: /database update <user> [data] | remove <user>'
