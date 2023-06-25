@@ -172,7 +172,10 @@ async def admin_send_all(message: Message):
         global show_name
         forward_message = True
         show_name = (arg.strip() != '-n')
-        await bot.send_message(message.chat.id, 'Отправь мне сообщение для пересылки всем (/cancel для отмены):')
+
+        s = 'с указанием отправителя' if show_name else 'без указания отправителя'
+
+        await bot.send_message(message.chat.id, f'Отправь мне сообщение для пересылки всем {s} (/cancel для отмены):')
 
     elif command == 'debuggrindcheck':
         await grindcheck()
