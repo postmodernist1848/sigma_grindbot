@@ -57,7 +57,7 @@ GRINDCHECK_TIME: Final[Tuple[int, int]] = (19, 20)
 DATABASE_FILENAME: Final[str] = 'database.db'
 EXECUTION_DIR: Final[str] = str(pathlib.Path(__file__).parent.resolve())
 
-DAYS_TIL_DELETION: Final[int] = 25
+DAYS_TIL_DELETION: Final[int] = 30
 
 VIDEO_DURATION_LIMIT: Final[int] = 60
 VIDEO_LOAD_LIMIT: Final[int] = 4 # number of requests allowed simultaneously
@@ -75,6 +75,7 @@ dp = aiogram.Dispatcher(bot)
 video_generation_load = 0
 
 forward_message = False
+show_name = True
 
 ################################################################################
 
@@ -168,7 +169,9 @@ async def admin_send_all(message: Message):
         await bot.send_message(message.chat.id, 'Вы уверены, что хотите отправить сообщение: \"' + send_all_message + '\"', reply_markup=markup, parse_mode='html')
     elif command == 'forward':
         global forward_message
+        global show_name
         forward_message = True
+        show_name = (arg.strip() != '-n')
         await bot.send_message(message.chat.id, 'Отправь мне сообщение для пересылки всем (/cancel для отмены):')
 
     elif command == 'debuggrindcheck':
@@ -288,12 +291,17 @@ from {user_to_str(message.from_user)}''')
     finally:
         video_generation_load -= 1
 
-@dp.message_handler()
+@dp.message_handler(content_types=ContentTypes.ANY)
 async def random_stoic_quote(message: Message):
-    if message.text.lower().startswith('привет'):
+    global forward_message
+    if message.text and message.text.lower().startswith('привет'):
         await message.answer('И тебе привет! Используй /help для помощи')
     elif forward_message and message.chat.id == ADMIN_ID:
-        await asyncio.gather(*(bot.forward_message(entry, from_chat_id=message.chat.id, message_id=message.message_id) for entry in database))
+        if show_name:
+            await asyncio.gather(*(message.forward(entry) for entry in database))
+        else:
+            await asyncio.gather(*(message.copy_to(entry) for entry in database))
+        forward_message = False
     else:
         print(f'{message.from_user.username}: {message.text}')
         quote_number = random.randint(0, 1773)
