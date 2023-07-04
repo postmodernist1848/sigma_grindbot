@@ -1,7 +1,10 @@
 import aiogram
+from aiogram.dispatcher import FSMContext
 from aiogram.utils.exceptions import BotBlocked, ChatNotFound
 from aiogram.types import Message, User, ContentTypes
 from typing import Final, List, Set, Tuple
+
+import logging
 
 import credentials
 import asyncio
@@ -11,6 +14,9 @@ from datetime import datetime, timedelta
 from swearing import generate_swearline
 import linecache
 import random
+
+from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
 from moviepy.editor import VideoFileClip, AudioFileClip
 import tempfile
@@ -34,6 +40,7 @@ HELP_MESSAGE: Final[str] = '''Этот бот позволяет вам вста
 /iqtest - тест IQ
 '''
 ADMIN_ID: Final[int] = 664863967
+
 
 #required for callback data
 class Calldata:
@@ -70,14 +77,17 @@ if not credentials.local:
 else:
     bot = aiogram.Bot(token=credentials.bot_token)
 
-dp = aiogram.Dispatcher(bot)
+storage = MemoryStorage()
+dp = aiogram.Dispatcher(bot, storage=storage)
 
 video_generation_load = 0
 
-forward_message = False
-show_name = True
+logging.basicConfig(level=logging.INFO)
 
 ################################################################################
+
+class States(StatesGroup):
+    forward = State()
 
 @dp.message_handler(commands=['help'])
 async def send_help(message: Message):
@@ -153,7 +163,7 @@ async def admin_control_panel(message: Message):
 
 
 @dp.message_handler(commands=['admin'])
-async def admin_send_all(message: Message):
+async def admin_send_all(message: Message, state: FSMContext):
     if message.from_user.id != ADMIN_ID:
         await bot.send_message(message.chat.id, "У вас нет прав администратора")
         return
@@ -168,10 +178,10 @@ async def admin_send_all(message: Message):
         send_all_message = arg
         await bot.send_message(message.chat.id, 'Вы уверены, что хотите отправить сообщение: \"' + send_all_message + '\"', reply_markup=markup, parse_mode='html')
     elif command == 'forward':
-        global forward_message
-        global show_name
-        forward_message = True
+        await States.forward.set()
         show_name = (arg.strip() != '-n')
+        async with state.proxy() as data:
+            data['show_name'] = show_name
 
         s = 'с указанием отправителя' if show_name else 'без указания отправителя'
 
@@ -182,13 +192,12 @@ async def admin_send_all(message: Message):
     else:
         await bot.send_message(message.chat.id, 'Неизвестная команда администратора')
 
-@dp.message_handler(commands=["cancel"])
-async def cancel(message: Message):
+@dp.message_handler(commands=["cancel"], state=States.forward)
+async def cancel(message: Message, state: FSMContext):
     if message.from_user.id != ADMIN_ID:
         await bot.send_message(message.chat.id, "У вас нет прав администратора")
         return
-    global forward_message
-    forward_message = False
+    await state.set_state(None)
     await bot.send_message(message.chat.id, 'Пересылка отменена')
 
 
@@ -262,7 +271,7 @@ async def send_sigma_walk_video(message: Message):
         await message.reply_video(video=reply_video)
 
 
-@dp.message_handler(content_types=ContentTypes.AUDIO)
+@dp.message_handler(content_types=ContentTypes.AUDIO, state=None)
 async def handle_music(message: Message):
 
     global video_generation_load
@@ -294,17 +303,20 @@ from {user_to_str(message.from_user)}''')
     finally:
         video_generation_load -= 1
 
-@dp.message_handler(content_types=ContentTypes.ANY)
-async def random_stoic_quote(message: Message):
-    global forward_message
-    if message.text and message.text.lower().startswith('привет'):
-        await message.answer('И тебе привет! Используй /help для помощи')
-    elif forward_message and message.chat.id == ADMIN_ID:
-        if show_name:
+@dp.message_handler(content_types=ContentTypes.ANY, state=States.forward)
+async def forward(message: Message, state: FSMContext):
+    async with state.proxy() as data:
+        if data['show_name']:
             await asyncio.gather(*(message.forward(entry) for entry in database))
         else:
             await asyncio.gather(*(message.copy_to(entry) for entry in database))
-        forward_message = False
+    await state.set_state(None)
+
+
+@dp.message_handler()
+async def random_stoic_quote(message: Message):
+    if message.text and message.text.lower().startswith('привет'):
+        await message.answer('И тебе привет! Используй /help для помощи')
     else:
         print(f'{message.from_user.username}: {message.text}')
         quote_number = random.randint(0, 1773)
