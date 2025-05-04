@@ -73,11 +73,7 @@ VIDEO_LOAD_LIMIT: Final[int] = 4  # number of requests allowed simultaneously
 
 ##################### Globals ##################################################
 
-if not credentials.local:
-    PROXY_URL: Final[str] = "http://proxy.server:3128"
-    bot = aiogram.Bot(token=credentials.bot_token, proxy=PROXY_URL)
-else:
-    bot = aiogram.Bot(token=credentials.bot_token)
+bot = aiogram.Bot(token=credentials.bot_token)
 
 storage = MemoryStorage()
 dp = aiogram.Dispatcher(storage=storage)
@@ -136,14 +132,14 @@ async def lose(message: Message):
         await bot.send_message(message.chat.id, "Вы не записывались на гринд. Чтобы стать сигмой, используйте /grind")
 
 
-@dp.message(Command('webapps'))
-async def lose(message: Message):
-    builder = InlineKeyboardBuilder()
-    builder.button(text='Zrok', web_app=WebAppInfo(
-        url="https://o3cf7jxyst5a.share.zrok.io/"))
-    builder.button(text='Preview', web_app=WebAppInfo(
-        url="https://preview-zov-kombat.postmodernist1848.ru/"))
-    await bot.send_message(message.chat.id, "Web Apps:", reply_markup=builder.as_markup())
+#@dp.message(Command('webapps'))
+#async def webapps(message: Message):
+#    builder = InlineKeyboardBuilder()
+#    builder.button(text='Zrok', web_app=WebAppInfo(
+#        url="https://o3cf7jxyst5a.share.zrok.io/"))
+#    builder.button(text='Preview', web_app=WebAppInfo(
+#        url="https://preview-zov-kombat.postmodernist1848.ru/"))
+#    await bot.send_message(message.chat.id, "Web Apps:", reply_markup=builder.as_markup())
 
 
 @dp.message(Command('swear'))
